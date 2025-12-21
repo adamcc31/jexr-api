@@ -2,6 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"go-recruitment-backend/config"
 	_ "go-recruitment-backend/docs" // Important for Swagger
 	v1 "go-recruitment-backend/internal/delivery/http/v1"
@@ -11,12 +19,6 @@ import (
 	"go-recruitment-backend/pkg/database"
 	"go-recruitment-backend/pkg/email"
 	"go-recruitment-backend/pkg/logger"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -24,8 +26,17 @@ import (
 // @title           Recruitment Backend API
 // @version         1.0
 // @description     Backend for recruitment system using Clean Architecture.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
 // @host            localhost:8080
 // @BasePath        /v1
+
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
@@ -38,12 +49,13 @@ func main() {
 
 	// 2. Setup Logger
 	logger.Init()
-	logger.Log.Info("Starting recruitment backend", "port", cfg.Port)
+	logger.Log.Info("Initializing recruitment backend...")
 
 	// 3. Setup Database
 	dbPool, err := database.NewPostgresConnection(cfg.DBUrl)
 	if err != nil {
 		logger.Log.Error("Failed to connect to database", "error", err)
+		// Paksa berhenti jika DB mati, karena app tidak berguna tanpa DB
 		os.Exit(1)
 	}
 	defer dbPool.Close()
@@ -53,14 +65,14 @@ func main() {
 	jobRepo := postgres.NewJobRepository(dbPool)
 	candidateRepo := postgres.NewCandidateRepository(dbPool)
 	adminRepo := postgres.NewAdminRepository(dbPool)
-	verificationRepo := postgres.NewVerificationRepository(dbPool)     // Verification Repo
-	applicationRepo := postgres.NewApplicationRepository(dbPool)       // Application Repo
-	companyProfileRepo := postgres.NewCompanyProfileRepository(dbPool) // Company Profile Repo
+	verificationRepo := postgres.NewVerificationRepository(dbPool)
+	applicationRepo := postgres.NewApplicationRepository(dbPool)
+	companyProfileRepo := postgres.NewCompanyProfileRepository(dbPool)
 
 	// 5. Setup Email Service
 	emailService := email.NewEmailService(cfg)
 	if !emailService.IsConfigured() {
-		logger.Log.Warn("Email service not fully configured - contact form will be unavailable")
+		logger.Log.Warn("Email service missing configuration - contact/verification features may fail")
 	}
 
 	// 6. Setup UseCases
@@ -69,14 +81,14 @@ func main() {
 	jobUC := usecase.NewJobUsecase(jobRepo, companyProfileRepo)
 	candidateUC := usecase.NewCandidateUsecase(candidateRepo, validate)
 	adminUC := usecase.NewAdminUsecase(adminRepo)
-	verificationUC := usecase.NewVerificationUsecase(verificationRepo, userRepo)               // Verification Usecase
-	applicationUC := usecase.NewApplicationUsecase(applicationRepo, jobRepo, verificationRepo) // Application Usecase
-	companyProfileUC := usecase.NewCompanyProfileUsecase(companyProfileRepo, verificationRepo) // Company Profile Usecase
-	contactUC := usecase.NewContactUsecase(emailService)                                       // Contact Usecase
+	verificationUC := usecase.NewVerificationUsecase(verificationRepo, userRepo)
+	applicationUC := usecase.NewApplicationUsecase(applicationRepo, jobRepo, verificationRepo)
+	companyProfileUC := usecase.NewCompanyProfileUsecase(companyProfileRepo, verificationRepo)
+	contactUC := usecase.NewContactUsecase(emailService)
 
 	// 7. Setup Auth Provider (JWKS)
-	// Assuming Supabase URL is like https://xyz.supabase.co
-	jwksURL := cfg.SupabaseUrl + "/auth/v1/.well-known/jwks.json"
+	// URL construction is now safer due to config sanitization
+	jwksURL := fmt.Sprintf("%s/auth/v1/.well-known/jwks.json", cfg.SupabaseUrl)
 	jwksProvider := auth.NewProvider(jwksURL)
 
 	// 8. Setup Router
@@ -84,11 +96,11 @@ func main() {
 		AuthUC:           authUC,
 		JobUC:            jobUC,
 		CandidateUC:      candidateUC,
-		ApplicationUC:    applicationUC, // Inject ApplicationUC
+		ApplicationUC:    applicationUC,
 		AdminUC:          adminUC,
-		VerificationUC:   verificationUC,   // Inject VerificationUC
-		CompanyProfileUC: companyProfileUC, // Inject CompanyProfileUC
-		ContactUC:        contactUC,        // Inject ContactUC
+		VerificationUC:   verificationUC,
+		CompanyProfileUC: companyProfileUC,
+		ContactUC:        contactUC,
 		JWKSProvider:     jwksProvider,
 		Config:           cfg,
 	})
@@ -97,26 +109,34 @@ func main() {
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: router,
+		// Good practice: Set timeouts to prevent slowloris attacks
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {
+		logger.Log.Info("Server is running", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Log.Error("Listen failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	// Graceful Shutdown
+	// Graceful Shutdown Logic
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logger.Log.Info("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// REVISI: Naikkan timeout ke 10-15 detik untuk Cloud Environment
+	// 5 detik seringkali terlalu cepat untuk memutus koneksi DB yang sibuk
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Log.Error("Server forced to shutdown", "error", err)
 	}
 
-	logger.Log.Info("Server exiting")
+	logger.Log.Info("Server exited properly")
 }
