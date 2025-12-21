@@ -1,37 +1,34 @@
-# --- Stage 1: Build ---
+# Stage 1: Build
 FROM golang:1.24-alpine AS builder
 
-# Install git dan certificates (penting untuk HTTPS request ke Supabase/DB)
+# Install git dan sertifikat SSL
 RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
-# Copy dependency files dulu agar ter-cache layer-nya
+# Copy dependency files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code sisanya
+# Copy seluruh source code
 COPY . .
 
-# Build binary. 
-# CGO_ENABLED=0 membuat binary statis (tidak butuh dependency OS)
-RUN CGO_ENABLED=0 GOOS=linux go build -o recruitment-backend main.go
+# --- BAGIAN KRITIS YANG DIPERBAIKI ---
+# Sebelumnya: go build -o recruitment-backend main.go (SALAH)
+# Sekarang: Arahkan ke folder cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -o recruitment-backend ./cmd/api
 
-# --- Stage 2: Production Run ---
+# Stage 2: Run
 FROM alpine:latest
 
-# Install CA Certs agar bisa connect ke HTTPS (Supabase/Postgres SSL)
 RUN apk --no-cache add ca-certificates
-
 WORKDIR /root/
 
-# Copy binary dari Stage 1
+# Copy binary dari builder
 COPY --from=builder /app/recruitment-backend .
-# Copy file .env jika aplikasi anda WAJIB butuh file fisik (tapi sebaiknya pakai ENV VAR di Railway)
-# COPY --from=builder /app/.env . 
 
-# Expose port (hanya dokumentasi, Railway akan override)
-EXPOSE 8080
+# Copy folder .env jika diperlukan (opsional, sebaiknya pakai ENV vars di Railway)
+# COPY --from=builder /app/.env .
 
-# Command untuk menjalankan aplikasi
+# Jalankan binary
 CMD ["./recruitment-backend"]
