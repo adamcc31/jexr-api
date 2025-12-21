@@ -1,0 +1,26 @@
+# --- Security (WAJIB) ---
+.env
+.env.local
+config.yaml
+
+# --- Golang System ---
+vendor/
+go.work
+go.work.sum
+
+# --- Binary/Build Output ---
+*.exe
+*.dll
+main
+recruitment-backend
+dist/
+bin/
+
+# --- IDE/Editor ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- OS Specific ---
+Thumbs.db
