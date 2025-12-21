@@ -160,23 +160,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// 5. Sync to Local DB
-	user := &domain.User{
-		ID:    supabaseUser.ID,
-		Email: req.Email,
-		Role:  req.Role, // Trust input role since we sent it to metadata
-	}
-
-	if err := h.authUC.EnsureUserExists(c.Request.Context(), user); err != nil {
-		c.Error(err)
-		return
-	}
-
-	// 6. Response
+	// 5. Response - User will be synced to local DB on first login (after email verification)
+	// This ensures email must be verified before the user exists in our database
 	msg := "Registration successful. Please check your email to confirm."
 	var data interface{} = nil
 
 	if supabaseUser.AccessToken != "" {
+		// Auto-verified case (e.g., email already confirmed or auto-confirm enabled)
+		// Sync user now since they're already verified
+		user := &domain.User{
+			ID:    supabaseUser.ID,
+			Email: req.Email,
+			Role:  req.Role,
+		}
+		if err := h.authUC.EnsureUserExists(c.Request.Context(), user); err != nil {
+			c.Error(err)
+			return
+		}
 		msg = "Registration successful"
 		data = gin.H{
 			"token": supabaseUser.AccessToken,
@@ -185,6 +185,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusCreated, msg, data)
+
 }
 
 // Login godoc

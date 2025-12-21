@@ -6,6 +6,9 @@ RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
+# Enable automatic Go toolchain management
+ENV GOTOOLCHAIN=auto
+
 # Copy dependency files
 COPY go.mod go.sum ./
 RUN go mod download
@@ -25,8 +28,8 @@ WORKDIR /root/
 # Copy binary dari builder
 COPY --from=builder /app/recruitment-backend .
 
-# Copy folder .env jika diperlukan (opsional, sebaiknya pakai ENV vars di Railway)
-# COPY --from=builder /app/.env .
+# Expose port for Koyeb
+EXPOSE 8080
 
 # Jalankan binary
 CMD ["./recruitment-backend"]
