@@ -19,7 +19,7 @@ type Config struct {
 	SMTPPort       string
 	SMTPUsername   string
 	SMTPPassword   string
-	ContactEmailTo string 
+	ContactEmailTo string
 }
 
 func LoadConfig() (*Config, error) {
@@ -27,8 +27,8 @@ func LoadConfig() (*Config, error) {
 	_ = godotenv.Load()
 
 	cfg := &Config{
-		Port:              getEnv("PORT", "8080"),
-		DBUrl:             getEnv("DATABASE_URL", ""),
+		Port:  getEnv("PORT", "8080"),
+		DBUrl: getEnv("DATABASE_URL", ""),
 		// Sanitasi: Hapus slash di akhir URL untuk mencegah double slash (misal: .co//auth)
 		SupabaseUrl:       strings.TrimRight(getEnv("SUPABASE_URL", ""), "/"),
 		SupabaseKey:       getEnv("SUPABASE_KEY", getEnv("SUPABASE_ANON_KEY", "")),

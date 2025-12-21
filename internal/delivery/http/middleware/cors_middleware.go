@@ -11,12 +11,16 @@ func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
-		// Allow specific origins (add your production domain here)
+		// Allow specific origins
 		allowedOrigins := map[string]bool{
+			// Production
+			"https://www.jexpertrecruitment.com": true,
+			"https://jexpertrecruitment.com":     true,
+			// Development
 			"http://localhost:3000":    true,
 			"http://127.0.0.1:3000":    true,
 			"http://localhost:3001":    true,
-			"http://192.168.1.26:3000": true, // Your network IP
+			"http://192.168.1.26:3000": true,
 		}
 
 		if allowedOrigins[origin] || origin == "" {
