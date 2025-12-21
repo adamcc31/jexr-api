@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -18,19 +19,18 @@ type Config struct {
 	SMTPPort       string
 	SMTPUsername   string
 	SMTPPassword   string
-	ContactEmailTo string // Recipient for contact form submissions
+	ContactEmailTo string 
 }
 
 func LoadConfig() (*Config, error) {
-	// Load .env file if it exists
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, relying on environment variables")
-	}
+	// Load .env file (Hanya efektif di Local, diabaikan di Production jika file tidak ada)
+	_ = godotenv.Load()
 
-	return &Config{
+	cfg := &Config{
 		Port:              getEnv("PORT", "8080"),
 		DBUrl:             getEnv("DATABASE_URL", ""),
-		SupabaseUrl:       getEnv("SUPABASE_URL", ""),
+		// Sanitasi: Hapus slash di akhir URL untuk mencegah double slash (misal: .co//auth)
+		SupabaseUrl:       strings.TrimRight(getEnv("SUPABASE_URL", ""), "/"),
 		SupabaseKey:       getEnv("SUPABASE_KEY", getEnv("SUPABASE_ANON_KEY", "")),
 		SupabaseJWTSecret: getEnv("SUPABASE_JWT_SECRET", getEnv("SUPABASE_JWT_KEY", "")),
 		// SMTP Configuration
@@ -39,7 +39,14 @@ func LoadConfig() (*Config, error) {
 		SMTPUsername:   getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:   getEnv("SMTP_PASSWORD", ""),
 		ContactEmailTo: getEnv("CONTACT_EMAIL_TO", "info@jexpertrecruitment.com"),
-	}, nil
+	}
+
+	// Validasi dasar untuk mencegah panic aneh nanti
+	if cfg.DBUrl == "" {
+		log.Println("WARNING: DATABASE_URL is missing. Application may fail to connect.")
+	}
+
+	return cfg, nil
 }
 
 func getEnv(key, fallback string) string {
