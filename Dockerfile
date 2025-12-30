@@ -28,7 +28,7 @@ WORKDIR /root/
 # Copy binary dari builder
 COPY --from=builder /app/recruitment-backend .
 
-# Expose port for Koyeb
+# Expose port for Railway
 EXPOSE 8080
 
 # Jalankan binary

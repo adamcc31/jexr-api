@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,7 +25,18 @@ func CORSMiddleware() gin.HandlerFunc {
 			"http://192.168.1.26:3000": true,
 		}
 
-		if allowedOrigins[origin] || origin == "" {
+		// Check if origin is allowed
+		isAllowed := allowedOrigins[origin] || origin == ""
+
+		// Also allow Vercel preview deployments (*.vercel.app)
+		if !isAllowed && strings.HasSuffix(origin, ".vercel.app") {
+			// Allow any Vercel preview URL that contains "jexpert" in the subdomain
+			if strings.Contains(origin, "jexpert") {
+				isAllowed = true
+			}
+		}
+
+		if isAllowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 		}
 
