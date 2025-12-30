@@ -9,6 +9,7 @@ import (
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/apperror"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -84,11 +85,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	signupURL := fmt.Sprintf("%s/auth/v1/signup", supabaseURL)
 
+	// Build redirect URL for email confirmation
+	emailRedirectTo := h.config.FrontendURL + "/auth/callback"
+
 	reqBody := map[string]interface{}{
 		"email":    req.Email,
 		"password": req.Password,
 		"data": map[string]interface{}{
 			"role": req.Role,
+		},
+		// Pass redirect URL in options (this is Supabase's documented format)
+		"options": map[string]interface{}{
+			"emailRedirectTo": emailRedirectTo,
 		},
 	}
 	// Add captcha token to request body (Supabase expects this in the body, not headers)
@@ -416,8 +424,17 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		supabaseURL = supabaseURL[:len(supabaseURL)-1]
 	}
 
-	// Supabase password recovery endpoint
-	recoveryURL := fmt.Sprintf("%s/auth/v1/recover", supabaseURL)
+	// Build recovery URL with redirect as query parameter
+	// Supabase GoTrue API /recover endpoint requires redirect_to as a QUERY PARAMETER
+	redirectURL := h.config.FrontendURL + "/auth/update-password"
+
+	// Safely build the URL with query parameters
+	u, _ := url.Parse(supabaseURL + "/auth/v1/recover")
+	q := u.Query()
+	q.Set("redirect_to", redirectURL)
+	u.RawQuery = q.Encode()
+
+	recoveryURL := u.String()
 
 	reqBody := map[string]interface{}{
 		"email": req.Email,
