@@ -195,6 +195,16 @@ func (r *onboardingRepo) GetOnboardingData(ctx context.Context, userID string) (
 // ============================================================================
 
 func (r *onboardingRepo) SaveOnboardingData(ctx context.Context, userID string, req *domain.OnboardingSubmitRequest) error {
+	// Log onboarding submission attempt (Railway-traceable, no sensitive data)
+	lpkType := "list"
+	if req.LPKSelection.None {
+		lpkType = "none"
+	} else if req.LPKSelection.OtherName != nil && *req.LPKSelection.OtherName != "" {
+		lpkType = "other"
+	}
+	fmt.Printf("[Onboarding] userID=%s interests=%d lpk_type=%s company_prefs=%d\n",
+		userID, len(req.Interests), lpkType, len(req.CompanyPreferences))
+
 	// Start transaction for atomicity
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -246,10 +256,11 @@ func (r *onboardingRepo) SaveOnboardingData(ctx context.Context, userID string, 
 
 	if !exists {
 		// Create a new verification record if it doesn't exist
-		// Default role to 'candidate' as only candidates go through onboarding
+		// Default role to 'CANDIDATE' as only candidates go through onboarding
+		// IMPORTANT: Must be uppercase to match CHECK constraint: role IN ('ADMIN', 'EMPLOYER', 'CANDIDATE')
 		_, err = tx.Exec(ctx, `
 			INSERT INTO account_verifications (user_id, role, lpk_id, lpk_other_name, lpk_none, onboarding_completed_at) 
-			VALUES ($1, 'candidate', $2, $3, $4, NOW())
+			VALUES ($1, 'CANDIDATE', $2, $3, $4, NOW())
 		`, userID, req.LPKSelection.LPKID, req.LPKSelection.OtherName, req.LPKSelection.None)
 		if err != nil {
 			return fmt.Errorf("failed to create verification record: %w", err)

@@ -54,7 +54,7 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 	protected := v1.Group("")
 	protected.Use(middleware.AuthMiddleware(deps.JWKSProvider, deps.Config, deps.AuthUC))
 	{
-		NewAuthHandler(v1, protected, deps.AuthUC, deps.Config)
+		NewAuthHandler(v1, protected, deps.AuthUC, deps.OnboardingUC, deps.Config)
 		NewJobHandler(v1, protected, deps.JobUC)
 		NewCandidateHandler(protected, deps.CandidateUC)
 		NewApplicationHandler(protected, deps.ApplicationUC)                                // Application routes

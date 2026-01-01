@@ -16,14 +16,16 @@ import (
 )
 
 type AuthHandler struct {
-	authUC domain.AuthUsecase
-	config *config.Config
+	authUC       domain.AuthUsecase
+	onboardingUC domain.OnboardingUsecase
+	config       *config.Config
 }
 
-func NewAuthHandler(public *gin.RouterGroup, protected *gin.RouterGroup, authUC domain.AuthUsecase, paramsConfig *config.Config) {
+func NewAuthHandler(public *gin.RouterGroup, protected *gin.RouterGroup, authUC domain.AuthUsecase, onboardingUC domain.OnboardingUsecase, paramsConfig *config.Config) {
 	handler := &AuthHandler{
-		authUC: authUC,
-		config: paramsConfig,
+		authUC:       authUC,
+		onboardingUC: onboardingUC,
+		config:       paramsConfig,
 	}
 
 	// Public Routes
@@ -359,7 +361,24 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	response.Success(c, http.StatusOK, "User details", user)
+
+	// For candidates, check onboarding status
+	var onboardingCompleted *bool
+	if user.Role == "candidate" { // Todo: Use domain constant if available
+		status, err := h.onboardingUC.GetOnboardingStatus(c, userID)
+		if err == nil && status != nil {
+			onboardingCompleted = &status.Completed
+		} else {
+			// If error or nil, assume false to be safe (or nil if we want to show unknown)
+			val := false
+			onboardingCompleted = &val
+		}
+	}
+
+	response.Success(c, http.StatusOK, "User details", gin.H{
+		"user":                 user,
+		"onboarding_completed": onboardingCompleted,
+	})
 }
 
 // ForgotPasswordRequest for requesting password reset email
