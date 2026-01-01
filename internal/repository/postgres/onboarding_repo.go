@@ -82,27 +82,32 @@ func (r *onboardingRepo) GetLPKByID(ctx context.Context, id int64) (*domain.LPK,
 // ============================================================================
 
 func (r *onboardingRepo) GetOnboardingStatus(ctx context.Context, userID string) (*domain.OnboardingStatus, error) {
+	// Check if user has any data in candidate_interests table
+	// This is the source of truth for whether onboarding is completed
 	query := `
-		SELECT onboarding_completed_at 
-		FROM account_verifications 
-		WHERE user_id = $1
+		SELECT EXISTS(
+			SELECT 1 FROM candidate_interests WHERE user_id = $1
+		)
 	`
 
-	var completedAt *time.Time
-	err := r.db.QueryRow(ctx, query, userID).Scan(&completedAt)
+	var hasInterests bool
+	err := r.db.QueryRow(ctx, query, userID).Scan(&hasInterests)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			// No verification record yet - onboarding not completed
-			return &domain.OnboardingStatus{
-				Completed:   false,
-				CompletedAt: nil,
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to get onboarding status: %w", err)
+		return nil, fmt.Errorf("failed to check onboarding status: %w", err)
+	}
+
+	// Also get the completion timestamp if it exists
+	var completedAt *time.Time
+	if hasInterests {
+		_ = r.db.QueryRow(ctx, `
+			SELECT onboarding_completed_at 
+			FROM account_verifications 
+			WHERE user_id = $1
+		`, userID).Scan(&completedAt)
 	}
 
 	return &domain.OnboardingStatus{
-		Completed:   completedAt != nil,
+		Completed:   hasInterests,
 		CompletedAt: completedAt,
 	}, nil
 }
