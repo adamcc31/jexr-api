@@ -16,13 +16,24 @@ import (
 func AuthMiddleware(jwksProvider *auth.Provider, cfg *config.Config, authUC domain.AuthUsecase) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			response.Error(c, http.StatusUnauthorized, "Authorization header required", nil)
+		var tokenString string
+
+		// 1. Try to get token from Header
+		if authHeader != "" {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+		} else {
+			// 2. Try to get token from Cookie
+			cookie, err := c.Cookie("auth_token")
+			if err == nil && cookie != "" {
+				tokenString = cookie
+			}
+		}
+
+		if tokenString == "" {
+			response.Error(c, http.StatusUnauthorized, "Authorization header or auth_token cookie required", nil)
 			c.Abort()
 			return
 		}
-
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			// Check signing method
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); ok {
