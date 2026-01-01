@@ -246,9 +246,10 @@ func (r *onboardingRepo) SaveOnboardingData(ctx context.Context, userID string, 
 
 	if !exists {
 		// Create a new verification record if it doesn't exist
+		// Default role to 'candidate' as only candidates go through onboarding
 		_, err = tx.Exec(ctx, `
-			INSERT INTO account_verifications (user_id, lpk_id, lpk_other_name, lpk_none, onboarding_completed_at) 
-			VALUES ($1, $2, $3, $4, NOW())
+			INSERT INTO account_verifications (user_id, role, lpk_id, lpk_other_name, lpk_none, onboarding_completed_at) 
+			VALUES ($1, 'candidate', $2, $3, $4, NOW())
 		`, userID, req.LPKSelection.LPKID, req.LPKSelection.OtherName, req.LPKSelection.None)
 		if err != nil {
 			return fmt.Errorf("failed to create verification record: %w", err)
