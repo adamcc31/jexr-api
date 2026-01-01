@@ -63,6 +63,29 @@ func (u *onboardingUsecase) GetOnboardingStatus(ctx context.Context, userID stri
 }
 
 // ============================================================================
+// Get Onboarding Data
+// ============================================================================
+
+func (u *onboardingUsecase) GetOnboardingData(ctx context.Context, userID string) (*domain.OnboardingData, error) {
+	// Security: Verify context user matches requested user
+	ctxUserID, ok := ctx.Value(domain.KeyUserID).(string)
+	if !ok || ctxUserID == "" {
+		return nil, apperror.Unauthorized("User not authenticated")
+	}
+
+	if ctxUserID != userID {
+		return nil, apperror.Forbidden("You can only view your own onboarding data")
+	}
+
+	data, err := u.repo.GetOnboardingData(ctx, userID)
+	if err != nil {
+		return nil, apperror.New(http.StatusInternalServerError, "Failed to get onboarding data: "+err.Error(), err)
+	}
+
+	return data, nil
+}
+
+// ============================================================================
 // Complete Onboarding
 // ============================================================================
 

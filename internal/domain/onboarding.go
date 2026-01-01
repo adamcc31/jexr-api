@@ -115,6 +115,15 @@ type OnboardingSubmitRequest struct {
 	CompanyPreferences []CompanyPreferenceKey `json:"company_preferences" validate:"required,min=1"`
 }
 
+// OnboardingData is the response for fetching saved onboarding data
+type OnboardingData struct {
+	Interests          []InterestKey          `json:"interests"`
+	LPKSelection       LPKSelection           `json:"lpk_selection"`
+	LPKName            *string                `json:"lpk_name,omitempty"` // Resolved LPK name from ID
+	CompanyPreferences []CompanyPreferenceKey `json:"company_preferences"`
+	CompletedAt        *time.Time             `json:"completed_at,omitempty"`
+}
+
 // ============================================================================
 // Repository Interface
 // ============================================================================
@@ -126,6 +135,9 @@ type OnboardingRepository interface {
 
 	// Onboarding Status
 	GetOnboardingStatus(ctx context.Context, userID string) (*OnboardingStatus, error)
+
+	// Get full onboarding data
+	GetOnboardingData(ctx context.Context, userID string) (*OnboardingData, error)
 
 	// Save Onboarding Data (atomic transaction)
 	SaveOnboardingData(ctx context.Context, userID string, req *OnboardingSubmitRequest) error
@@ -141,6 +153,9 @@ type OnboardingUsecase interface {
 
 	// Check if user has completed onboarding
 	GetOnboardingStatus(ctx context.Context, userID string) (*OnboardingStatus, error)
+
+	// Get full onboarding data for profile display
+	GetOnboardingData(ctx context.Context, userID string) (*OnboardingData, error)
 
 	// Validate and save onboarding data
 	CompleteOnboarding(ctx context.Context, userID string, req *OnboardingSubmitRequest) error

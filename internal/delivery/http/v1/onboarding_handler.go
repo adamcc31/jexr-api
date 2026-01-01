@@ -18,6 +18,7 @@ func NewOnboardingHandler(r *gin.RouterGroup, onboardingUC domain.OnboardingUsec
 	onboarding := r.Group("/onboarding")
 	{
 		onboarding.GET("/status", handler.GetStatus)
+		onboarding.GET("/data", handler.GetData)
 		onboarding.GET("/lpk/search", handler.SearchLPK)
 		onboarding.POST("/complete", handler.Complete)
 	}
@@ -42,6 +43,27 @@ func (h *OnboardingHandler) GetStatus(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Onboarding status retrieved", status)
+}
+
+// GetData godoc
+// @Summary      Get onboarding data
+// @Description  Get the saved onboarding wizard data for the current user
+// @Tags         onboarding
+// @Produce      json
+// @Success      200  {object}  response.Response{data=domain.OnboardingData}
+// @Failure      401  {object}  response.Response
+// @Router       /onboarding/data [get]
+// @Security     BearerAuth
+func (h *OnboardingHandler) GetData(c *gin.Context) {
+	userID := c.GetString(string(domain.KeyUserID))
+
+	data, err := h.onboardingUC.GetOnboardingData(c, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "Onboarding data retrieved", data)
 }
 
 // SearchLPK godoc

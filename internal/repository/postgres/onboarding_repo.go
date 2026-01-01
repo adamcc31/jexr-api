@@ -108,6 +108,84 @@ func (r *onboardingRepo) GetOnboardingStatus(ctx context.Context, userID string)
 }
 
 // ============================================================================
+// Get Onboarding Data
+// ============================================================================
+
+func (r *onboardingRepo) GetOnboardingData(ctx context.Context, userID string) (*domain.OnboardingData, error) {
+	data := &domain.OnboardingData{
+		Interests:          []domain.InterestKey{},
+		CompanyPreferences: []domain.CompanyPreferenceKey{},
+		LPKSelection: domain.LPKSelection{
+			None: false,
+		},
+	}
+
+	// 1. Get interests
+	interestRows, err := r.db.Query(ctx, `
+		SELECT interest_key FROM candidate_interests WHERE user_id = $1
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get interests: %w", err)
+	}
+	defer interestRows.Close()
+
+	for interestRows.Next() {
+		var key string
+		if err := interestRows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("failed to scan interest: %w", err)
+		}
+		data.Interests = append(data.Interests, domain.InterestKey(key))
+	}
+
+	// 2. Get company preferences
+	prefRows, err := r.db.Query(ctx, `
+		SELECT preference_key FROM candidate_company_preferences WHERE user_id = $1
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get company preferences: %w", err)
+	}
+	defer prefRows.Close()
+
+	for prefRows.Next() {
+		var key string
+		if err := prefRows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("failed to scan company preference: %w", err)
+		}
+		data.CompanyPreferences = append(data.CompanyPreferences, domain.CompanyPreferenceKey(key))
+	}
+
+	// 3. Get LPK selection and completion status
+	var lpkID *int64
+	var lpkOtherName *string
+	var lpkNone *bool
+	var completedAt *time.Time
+	var lpkName *string
+
+	err = r.db.QueryRow(ctx, `
+		SELECT av.lpk_id, av.lpk_other_name, av.lpk_none, av.onboarding_completed_at, lpk.name
+		FROM account_verifications av
+		LEFT JOIN lpk_list lpk ON av.lpk_id = lpk.id
+		WHERE av.user_id = $1
+	`, userID).Scan(&lpkID, &lpkOtherName, &lpkNone, &completedAt, &lpkName)
+
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("failed to get LPK selection: %w", err)
+	}
+
+	if err != pgx.ErrNoRows {
+		data.LPKSelection.LPKID = lpkID
+		data.LPKSelection.OtherName = lpkOtherName
+		if lpkNone != nil {
+			data.LPKSelection.None = *lpkNone
+		}
+		data.LPKName = lpkName
+		data.CompletedAt = completedAt
+	}
+
+	return data, nil
+}
+
+// ============================================================================
 // Save Onboarding Data (Atomic Transaction)
 // ============================================================================
 
