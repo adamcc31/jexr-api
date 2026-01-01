@@ -363,22 +363,18 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	}
 
 	// For candidates, check onboarding status
-	var onboardingCompleted *bool
 	if user.Role == "candidate" { // Todo: Use domain constant if available
 		status, err := h.onboardingUC.GetOnboardingStatus(c, userID)
 		if err == nil && status != nil {
-			onboardingCompleted = &status.Completed
+			user.OnboardingCompleted = &status.Completed
 		} else {
-			// If error or nil, assume false to be safe (or nil if we want to show unknown)
+			// If error or nil, assume false to be safe
 			val := false
-			onboardingCompleted = &val
+			user.OnboardingCompleted = &val
 		}
 	}
 
-	response.Success(c, http.StatusOK, "User details", gin.H{
-		"user":                 user,
-		"onboarding_completed": onboardingCompleted,
-	})
+	response.Success(c, http.StatusOK, "User details", user)
 }
 
 // ForgotPasswordRequest for requesting password reset email

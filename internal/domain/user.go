@@ -6,11 +6,12 @@ import (
 )
 
 type User struct {
-	ID        string    `json:"id"` // Supabase UUID
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                  string    `json:"id"` // Supabase UUID
+	Email               string    `json:"email"`
+	Role                string    `json:"role"`
+	OnboardingCompleted *bool     `json:"onboarding_completed,omitempty"` // Computed field, not in users table
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 type UserRepository interface {
