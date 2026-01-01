@@ -45,7 +45,7 @@ func (u *onboardingUsecase) SearchLPK(ctx context.Context, query string) ([]doma
 
 func (u *onboardingUsecase) GetOnboardingStatus(ctx context.Context, userID string) (*domain.OnboardingStatus, error) {
 	// Security: Verify context user matches requested user
-	ctxUserID, ok := ctx.Value(domain.KeyUserID).(string)
+	ctxUserID, ok := ctx.Value(string(domain.KeyUserID)).(string)
 	if !ok || ctxUserID == "" {
 		return nil, apperror.Unauthorized("User not authenticated")
 	}
@@ -91,7 +91,7 @@ func (u *onboardingUsecase) GetOnboardingData(ctx context.Context, userID string
 
 func (u *onboardingUsecase) CompleteOnboarding(ctx context.Context, userID string, req *domain.OnboardingSubmitRequest) error {
 	// Security: Verify context user matches requested user
-	ctxUserID, ok := ctx.Value(domain.KeyUserID).(string)
+	ctxUserID, ok := ctx.Value(string(domain.KeyUserID)).(string)
 	if !ok || ctxUserID == "" {
 		return apperror.Unauthorized("User not authenticated")
 	}
