@@ -22,6 +22,7 @@ type RouterDeps struct {
 	VerificationUC   domain.VerificationUsecase   // Added for verification endpoints
 	CompanyProfileUC domain.CompanyProfileUsecase // Added for company profile endpoints
 	ContactUC        domain.ContactUsecase        // Added for contact form
+	OnboardingUC     domain.OnboardingUsecase     // Added for onboarding wizard
 	JWKSProvider     *auth.Provider
 	Config           *config.Config
 }
@@ -60,6 +61,7 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 		NewAdminHandler(protected, deps.AdminUC)                                            // Admin routes
 		NewVerificationHandler(protected, deps.VerificationUC)                              // Verification routes
 		NewCompanyProfileHandler(v1, protected, deps.CompanyProfileUC, deps.VerificationUC) // Company profile routes
+		NewOnboardingHandler(protected, deps.OnboardingUC)                                  // Onboarding wizard routes
 	}
 
 	return r
