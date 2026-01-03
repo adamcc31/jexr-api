@@ -54,6 +54,7 @@ func generateCSRFToken() (string, error) {
 func CSRFMiddleware() gin.HandlerFunc {
 	// Routes that are exempt from CSRF protection
 	// These are public endpoints where users don't have a session yet
+	// or endpoints that have their own authentication (like file uploads with JWT)
 	csrfExemptPaths := map[string]bool{
 		"/v1/auth/login":           true,
 		"/v1/auth/register":        true,
@@ -61,6 +62,7 @@ func CSRFMiddleware() gin.HandlerFunc {
 		"/v1/auth/reset-password":  true,
 		"/v1/contact":              true, // Public contact form
 		"/v1/health":               true, // Health check
+		"/v1/upload":               true, // File upload (protected by JWT auth instead)
 	}
 
 	return func(c *gin.Context) {

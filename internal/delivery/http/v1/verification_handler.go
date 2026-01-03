@@ -199,16 +199,27 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 
 	// === SECURITY: MIME Type Whitelist ===
 	// Only allow specific file types to prevent web shell uploads
+	// Note: http.DetectContentType only checks first 512 bytes and may return
+	// "application/octet-stream" for some valid documents
 	allowedMimeTypes := map[string]bool{
-		"image/jpeg":      true,
-		"image/png":       true,
-		"image/gif":       true,
-		"image/webp":      true,
+		// Images
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+		"image/webp": true,
+		// Documents
 		"application/pdf": true,
+		// Word documents (may be detected as these)
+		"application/msword": true,
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+		// Text files
+		"text/plain": true,
+		// Generic binary (fallback - validate extension separately)
+		"application/octet-stream": true,
 	}
 	if !allowedMimeTypes[contentType] {
 		response.Error(c, http.StatusBadRequest,
-			fmt.Sprintf("File type not allowed: %s. Allowed types: JPEG, PNG, GIF, WebP, PDF", contentType), nil)
+			fmt.Sprintf("File type not allowed: %s. Allowed types: Images (JPEG, PNG, GIF, WebP), PDF, DOC, DOCX, TXT", contentType), nil)
 		return
 	}
 
