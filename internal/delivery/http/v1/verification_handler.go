@@ -100,9 +100,24 @@ func (h *VerificationHandler) UpdateProfile(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /upload [post]
 func (h *VerificationHandler) UploadFile(c *gin.Context) {
+	// === SECURITY: File Size Limit ===
+	// Limit request body to 10MB to prevent resource exhaustion
+	const maxUploadSize = 10 * 1024 * 1024 // 10MB
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadSize)
+
 	file, err := c.FormFile("file")
 	if err != nil {
+		if err.Error() == "http: request body too large" {
+			response.Error(c, http.StatusRequestEntityTooLarge, "File too large. Maximum size is 10MB.", nil)
+			return
+		}
 		response.Error(c, http.StatusBadRequest, "No file uploaded", err.Error())
+		return
+	}
+
+	// === SECURITY: File Size Double-Check ===
+	if file.Size > maxUploadSize {
+		response.Error(c, http.StatusRequestEntityTooLarge, "File too large. Maximum size is 10MB.", nil)
 		return
 	}
 
@@ -178,9 +193,24 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
-	// Detect content type from file bytes (more reliable than header)
+	// Detect content type from file bytes (more reliable than header - uses magic bytes)
 	contentType := http.DetectContentType(fileBytes)
 	log.Printf("Detected content type: %s (original filename: %s)", contentType, file.Filename)
+
+	// === SECURITY: MIME Type Whitelist ===
+	// Only allow specific file types to prevent web shell uploads
+	allowedMimeTypes := map[string]bool{
+		"image/jpeg":      true,
+		"image/png":       true,
+		"image/gif":       true,
+		"image/webp":      true,
+		"application/pdf": true,
+	}
+	if !allowedMimeTypes[contentType] {
+		response.Error(c, http.StatusBadRequest,
+			fmt.Sprintf("File type not allowed: %s. Allowed types: JPEG, PNG, GIF, WebP, PDF", contentType), nil)
+		return
+	}
 
 	// Determine if it's an image for compression
 	isImage := strings.HasPrefix(contentType, "image/")
@@ -206,7 +236,7 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 		finalFilename = fmt.Sprintf("%d_%s", time.Now().UnixNano(), sanitizeFilename(file.Filename))
 	}
 
-	log.Printf("Upload using key from env (first 20 chars: %s...)", supabaseKey[:min(20, len(supabaseKey))])
+	// Credentials validation (no logging of sensitive values)
 
 	if supabaseURL == "" || supabaseKey == "" {
 		response.Error(c, http.StatusInternalServerError, "Storage not configured", "Missing Supabase credentials")

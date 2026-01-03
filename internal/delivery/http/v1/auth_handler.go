@@ -302,15 +302,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Sync User
+	// Sync User (idempotent - handles ID mismatches gracefully)
 	user := &domain.User{
 		ID:    supabaseUser.User.ID,
 		Email: supabaseUser.User.Email,
-		// Role: Leave empty so EnsureUserExists doesn't overwrite existing role.
-		// If user doesn't exist, EnsureUserExists will default it to 'candidate'.
+		// Role: Leave empty so SyncUserFromAuth doesn't overwrite existing role.
+		// If user doesn't exist, SyncUserFromAuth will default it to 'candidate'.
 	}
 
-	if err := h.authUC.EnsureUserExists(c.Request.Context(), user); err != nil {
+	if err := h.authUC.SyncUserFromAuth(c.Request.Context(), user); err != nil {
 		c.Error(err)
 		return
 	}

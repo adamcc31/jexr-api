@@ -19,10 +19,12 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Update(ctx context.Context, user *User) error
+	UpdateByEmail(ctx context.Context, email string, user *User) error // Update user by email, including ID change
 }
 
 type AuthUsecase interface {
-	EnsureUserExists(ctx context.Context, user *User) error
+	EnsureUserExists(ctx context.Context, user *User) error // Deprecated: Use SyncUserFromAuth for login flow
+	SyncUserFromAuth(ctx context.Context, user *User) error // Idempotent user sync for login
 	AssignRole(ctx context.Context, userID string, role string) error
 	GetCurrentUser(ctx context.Context, id string) (*User, error)
 	CheckEmailExists(ctx context.Context, email string) (bool, error)

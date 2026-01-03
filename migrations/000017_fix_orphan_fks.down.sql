@@ -1,0 +1,2 @@
+-- Revert 000017: No action needed.
+-- We do not want to restore the blocking duplicate constraints.

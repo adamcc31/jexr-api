@@ -7,6 +7,7 @@ import (
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/auth"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -31,7 +32,10 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 	r := gin.New()
 
 	// Global Middlewares
-	r.Use(middleware.CORSMiddleware()) // CORS must be first!
+	r.Use(middleware.CORSMiddleware())            // CORS must be first!
+	r.Use(middleware.SecurityHeadersMiddleware()) // Security headers (HSTS, XSS, etc.)
+	r.Use(middleware.GlobalRateLimitMiddleware()) // Global rate limit: 100 req/min per IP
+	r.Use(middleware.CSRFMiddleware())            // CSRF protection (Double-Submit Cookie)
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger()) // Use standard Gin logger
 	r.Use(middleware.RequestID())
@@ -47,8 +51,11 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 	// Public routes
 	NewContactHandler(v1, deps.ContactUC) // Contact form (no auth required)
 
-	// Swagger
-	v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger - ONLY available in development mode
+	// In production, this is disabled to prevent API enumeration
+	if os.Getenv("GIN_MODE") != "release" {
+		v1.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// Protected routes
 	protected := v1.Group("")
