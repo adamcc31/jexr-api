@@ -194,10 +194,10 @@ func (uc *verificationUsecase) UpdateCandidateProfile(ctx context.Context, userI
 	// NOTE: JapaneseCertificateURL (JLPT) is now OPTIONAL - removed from mandatory checks
 	// NOTE: PortfolioURL is OPTIONAL - not checked
 
-	// Requirement: Work Experience in Japan (Mandatory)
-	if len(experiences) == 0 {
-		isComplete = false
-	}
+	// NOTE: Japan Work Experience (experiences) is no longer required via this form.
+	// Work experience is now captured in the unified work_experiences table through
+	// the Professional Profile form. The old japan_work_experiences is deprecated.
+	// Removed: if len(experiences) == 0 { isComplete = false }
 
 	if isComplete {
 		verification.Status = domain.VerificationStatusSubmitted
