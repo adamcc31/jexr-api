@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go-recruitment-backend/internal/domain"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -88,11 +89,13 @@ func (r *verificationRepo) List(ctx context.Context, filter domain.VerificationF
 			av.expected_salary, av.japan_return_date, av.available_start_date, av.preferred_locations, av.preferred_industries,
 			av.supporting_certificates_url,
 			u.email,
-			CASE 
-				WHEN av.role = 'CANDIDATE' THEN COALESCE(av.first_name || ' ' || av.last_name, cp.title) -- Fallback to legacy title or concat name
-				WHEN av.role = 'EMPLOYER' THEN comp.company_name
-				ELSE ''
-			END as profile_name
+			COALESCE(
+				CASE 
+					WHEN av.role = 'CANDIDATE' THEN COALESCE(av.first_name || ' ' || av.last_name, cp.title)
+					WHEN av.role = 'EMPLOYER' THEN comp.company_name
+					ELSE ''
+				END,
+			'') as profile_name
 		FROM account_verifications av
 		JOIN users u ON av.user_id = u.id
 		LEFT JOIN candidate_profiles cp ON av.user_id = cp.user_id AND av.role = 'CANDIDATE'
@@ -151,7 +154,8 @@ func (r *verificationRepo) List(ctx context.Context, filter domain.VerificationF
 			&v.UserEmail, &profileName,
 		)
 		if err != nil {
-			continue // Or return error
+			log.Printf("ERROR scanning verification row: %v", err)
+			continue // Log and continue to diagnose the issue
 		}
 
 		v.UserProfile = &domain.UserProfileSummary{
