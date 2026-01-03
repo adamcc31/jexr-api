@@ -54,7 +54,6 @@ func generateCSRFToken() (string, error) {
 func CSRFMiddleware() gin.HandlerFunc {
 	// Routes that are exempt from CSRF protection
 	// These are public endpoints where users don't have a session yet
-	// or endpoints that have their own authentication (like file uploads with JWT)
 	csrfExemptPaths := map[string]bool{
 		"/v1/auth/login":           true,
 		"/v1/auth/register":        true,
@@ -62,15 +61,44 @@ func CSRFMiddleware() gin.HandlerFunc {
 		"/v1/auth/reset-password":  true,
 		"/v1/contact":              true, // Public contact form
 		"/v1/health":               true, // Health check
-		"/v1/upload":               true, // File upload (protected by JWT auth instead)
 	}
 
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		// Check if path is exempt
+		// === SECURITY DECISION ===
+		// If request has JWT Authorization header, skip CSRF check.
+		// Rationale: CSRF attacks work by exploiting automatic cookie submission.
+		// If the request requires an explicit Authorization header (Bearer token),
+		// attackers cannot forge this from a cross-origin request.
+		// JWT provides equivalent protection to CSRF tokens for authenticated endpoints.
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			// Has valid JWT Bearer token - CSRF not needed
+			// Still set cookie for future non-JWT requests
+			csrfCookie, err := c.Cookie(CSRFTokenCookieName)
+			if err != nil || csrfCookie == "" {
+				newToken, _ := generateCSRFToken()
+				if newToken != "" {
+					c.SetSameSite(http.SameSiteLaxMode)
+					c.SetCookie(
+						CSRFTokenCookieName,
+						newToken,
+						int(CSRFTokenExpiry.Seconds()),
+						"/",
+						"",
+						true,
+						false,
+					)
+				}
+			}
+			c.Next()
+			return
+		}
+
+		// Check if path is exempt (public endpoints)
 		if csrfExemptPaths[path] {
-			// Still set the cookie for future requests, but don't validate
+			// Set cookie for future requests but don't validate
 			csrfCookie, err := c.Cookie(CSRFTokenCookieName)
 			if err != nil || csrfCookie == "" {
 				newToken, _ := generateCSRFToken()
