@@ -390,12 +390,12 @@ func (h *VerificationHandler) List(c *gin.Context) {
 
 // GetDetail godoc
 // @Summary Get verification detail
-// @Description Get a single verification with work experiences (Admin only)
+// @Description Get a single verification with all candidate data for admin review (Admin only)
 // @Tags Verification
 // @Accept json
 // @Produce json
 // @Param id path int true "Verification ID"
-// @Success 200 {object} domain.VerificationResponse
+// @Success 200 {object} domain.ComprehensiveVerificationResponse
 // @Router /verifications/{id} [get]
 func (h *VerificationHandler) GetDetail(c *gin.Context) {
 	// Check Admin
@@ -412,7 +412,7 @@ func (h *VerificationHandler) GetDetail(c *gin.Context) {
 		return
 	}
 
-	detail, err := h.verificationUC.GetVerificationByID(c.Request.Context(), id)
+	detail, err := h.verificationUC.GetComprehensiveVerificationByID(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch verification", err.Error())
 		return

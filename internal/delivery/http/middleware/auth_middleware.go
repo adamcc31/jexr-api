@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"go-recruitment-backend/config"
 	"go-recruitment-backend/internal/delivery/http/response"
@@ -89,6 +90,13 @@ func AuthMiddleware(jwksProvider *auth.Provider, cfg *config.Config, authUC doma
 		c.Set(string(domain.KeyUserID), sub)
 		c.Set(string(domain.KeyUserEmail), email)
 		c.Set(string(domain.KeyUserRole), role)
+
+		// Also set with typed keys for usecase context compatibility
+
+		// Also set with typed keys for usecase context compatibility
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), domain.KeyUserID, sub))
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), domain.KeyUserEmail, email))
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), domain.KeyUserRole, role))
 
 		c.Next()
 	}

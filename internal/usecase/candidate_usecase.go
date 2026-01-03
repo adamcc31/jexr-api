@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/apperror"
 
@@ -21,49 +22,89 @@ func NewCandidateUsecase(repo domain.CandidateRepository, validate *validator.Va
 }
 
 func (u *candidateUsecase) GetProfile(ctx context.Context, userID string) (*domain.CandidateProfile, error) {
-	// Security: Ownership Check
-	ctxUserID, ok := ctx.Value(domain.KeyUserID).(string)
-	if !ok || ctxUserID == "" {
-		return nil, apperror.Unauthorized("User not authenticated")
+	// Authorization
+	authID, _ := ctx.Value(domain.KeyUserID).(string)
+	if authID == "" {
+		return nil, apperror.Unauthorized("Not authenticated")
+	}
+	if authID != userID {
+		return nil, apperror.Forbidden("Access denied")
 	}
 
-	// Allow admin to bypass this check (optional, but good for admin dashboard)
-	// For now, strict ownership:
-	if ctxUserID != userID {
-		// Check if user is admin if we want to allow admins
-		/*
-			role, _ := ctx.Value(domain.KeyUserRole).(string)
-			if role != "admin" {
-				return nil, apperror.Forbidden("You can only view your own profile")
-			}
-		*/
-		return nil, apperror.Forbidden("You can only view your own profile")
-	}
-
-	profile, err := u.repo.GetByUserID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	if profile == nil {
-		return nil, apperror.NotFound("Candidate profile not found")
-	}
-	return profile, nil
+	return u.repo.GetByUserID(ctx, userID)
 }
 
 func (u *candidateUsecase) UpdateProfile(ctx context.Context, profile *domain.CandidateProfile) error {
-	// Security: Verify context user matches profile user (IDOR prevention on update)
-	ctxUserID, ok := ctx.Value(domain.KeyUserID).(string)
-	if !ok || ctxUserID == "" {
-		return apperror.Unauthorized("User not authenticated")
+	authID, _ := ctx.Value(domain.KeyUserID).(string)
+	if authID == "" {
+		return apperror.Unauthorized("Not authenticated")
 	}
+	profile.UserID = authID
 
-	// Force the UserID to be the context user, ensuring they can't update someone else's profile
-	profile.UserID = ctxUserID
-
-	// Validation
 	if err := u.validate.Struct(profile); err != nil {
 		return apperror.BadRequest(err.Error())
 	}
-
 	return u.repo.Update(ctx, profile)
+}
+
+// ============================================================================
+// Full Profile Operations
+// ============================================================================
+
+func (u *candidateUsecase) GetFullProfile(ctx context.Context, userID string) (*domain.CandidateWithFullDetails, error) {
+	authID, ok := ctx.Value(domain.KeyUserID).(string)
+
+	if !ok || authID == "" {
+		return nil, apperror.Unauthorized("Authentication required")
+	}
+
+	if authID != userID {
+		return nil, apperror.Forbidden("You can only view your own profile")
+	}
+
+	fullProfile, err := u.repo.GetFullProfile(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if fullProfile == nil {
+		return nil, apperror.NotFound("Profile not found")
+	}
+
+	return fullProfile, nil
+}
+
+func (u *candidateUsecase) UpdateFullProfile(ctx context.Context, userID string, req *domain.CandidateWithFullDetails) error {
+	authID, ok := ctx.Value(domain.KeyUserID).(string)
+	if !ok || authID == "" {
+		return apperror.Unauthorized("Authentication required")
+	}
+	if authID != userID {
+		return apperror.Forbidden("You can only update your own profile")
+	}
+
+	// Force UserID consistency
+	req.Profile.UserID = authID
+	req.Details.UserID = authID
+	for i := range req.WorkExperiences {
+		req.WorkExperiences[i].UserID = authID
+	}
+
+	// Validation
+	if err := u.validate.Struct(&req.Profile); err != nil {
+		return apperror.BadRequest("Profile Validation: " + err.Error())
+	}
+	if err := u.validate.Struct(&req.Details); err != nil {
+		return apperror.BadRequest("Details Validation: " + err.Error())
+	}
+	for i, we := range req.WorkExperiences {
+		if err := u.validate.Struct(we); err != nil {
+			return apperror.BadRequest(fmt.Sprintf("WorkExperience[%d]: %s", i, err.Error()))
+		}
+	}
+
+	return u.repo.UpsertFullProfile(ctx, req)
+}
+
+func (u *candidateUsecase) GetMasterSkills(ctx context.Context) ([]domain.Skill, error) {
+	return u.repo.GetAllSkills(ctx)
 }

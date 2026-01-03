@@ -57,9 +57,10 @@ type AccountVerification struct {
 	WebsiteURL              *string `json:"website_url"`
 	Intro                   *string `json:"intro"`
 	JapanExperienceDuration *int    `json:"japan_experience_duration"` // In months
-	JapaneseCertificateURL  *string `json:"japanese_certificate_url"`
-	CvURL                   *string `json:"cv_url"`         // CV/Resume document URL
-	JapaneseLevel           *string `json:"japanese_level"` // N5, N4, N3, N2, N1
+	JapaneseCertificateURL  *string `json:"japanese_certificate_url"`  // Optional: JLPT certificate
+	CvURL                   *string `json:"cv_url"`                    // Mandatory: CV/Resume document URL
+	PortfolioURL            *string `json:"portfolio_url"`             // Optional: External portfolio URL
+	JapaneseLevel           *string `json:"japanese_level"`            // N5, N4, N3, N2, N1
 
 	// HR Candidate Data: Identity & Demographics
 	BirthDate     *time.Time `json:"birth_date,omitempty"`
@@ -105,6 +106,18 @@ type VerificationResponse struct {
 	Experiences  []JapanWorkExperience `json:"experiences"`
 }
 
+// ComprehensiveVerificationResponse aggregates ALL candidate data for admin review
+type ComprehensiveVerificationResponse struct {
+	Verification     *AccountVerification   `json:"verification"`
+	Experiences      []JapanWorkExperience  `json:"experiences"`       // Legacy japan_work_experiences
+	CandidateProfile *CandidateProfile      `json:"candidate_profile"` // Education, career goals
+	CandidateDetails *CandidateDetail       `json:"candidate_details"` // Soft skills, achievements
+	WorkExperiences  []WorkExperience       `json:"work_experiences"`  // Unified work history
+	Skills           []Skill                `json:"skills"`            // Resolved skill names
+	Certificates     []CandidateCertificate `json:"certificates"`      // English certs
+	OnboardingData   *OnboardingData        `json:"onboarding_data"`   // LPK, interests, prefs
+}
+
 // UserProfileSummary holds minimal profile info for the admin table
 type UserProfileSummary struct {
 	Name        string `json:"name"`
@@ -130,6 +143,9 @@ type VerificationRepository interface {
 	Create(ctx context.Context, verification *AccountVerification) (int64, error)
 	UpdateProfile(ctx context.Context, verification *AccountVerification, experiences []JapanWorkExperience) error
 	GetWorkExperiences(ctx context.Context, verificationID int64) ([]JapanWorkExperience, error)
+
+	// Comprehensive data for admin verification detail
+	GetComprehensiveByID(ctx context.Context, id int64) (*ComprehensiveVerificationResponse, error)
 }
 
 // VerificationUsecase interface
@@ -140,4 +156,7 @@ type VerificationUsecase interface {
 	GetVerificationStatus(ctx context.Context, userID string) (*VerificationResponse, error)
 	GetVerificationByID(ctx context.Context, id int64) (*VerificationResponse, error) // For admin detail view
 	UpdateCandidateProfile(ctx context.Context, userID string, verification *AccountVerification, experiences []JapanWorkExperience) error
+
+	// Comprehensive data for admin verification detail
+	GetComprehensiveVerificationByID(ctx context.Context, id int64) (*ComprehensiveVerificationResponse, error)
 }

@@ -68,7 +68,13 @@ func (u *onboardingUsecase) GetOnboardingStatus(ctx context.Context, userID stri
 
 func (u *onboardingUsecase) GetOnboardingData(ctx context.Context, userID string) (*domain.OnboardingData, error) {
 	// Security: Verify context user matches requested user
-	ctxUserID, ok := ctx.Value(domain.KeyUserID).(string)
+	// Try compatible string key first (Gin context)
+	ctxUserID, ok := ctx.Value(string(domain.KeyUserID)).(string)
+	if !ok || ctxUserID == "" {
+		// Fallback to typed key (standard context / tests)
+		ctxUserID, ok = ctx.Value(domain.KeyUserID).(string)
+	}
+
 	if !ok || ctxUserID == "" {
 		return nil, apperror.Unauthorized("User not authenticated")
 	}

@@ -141,10 +141,22 @@ func (uc *verificationUsecase) UpdateCandidateProfile(ctx context.Context, userI
 		verification.ID = existing.ID
 	}
 
-	// "Japanese language certificate (FILE UPLOAD – mandatory)"
-	// "Work Experience in Japan (Mandatory)"
+	// =========================================================================
+	// Mandatory Field Validation for Verification Completion
+	// =========================================================================
+	// MANDATORY fields (all must be filled for SUBMITTED status):
+	// - Profile Picture, First Name, Last Name, Occupation
+	// - Phone, Birth Date, Domicile City
+	// - Japan Experience Duration, CV Document
+	// - At least one Japan Work Experience
+	//
+	// OPTIONAL fields (do NOT affect completion status):
+	// - JLPT Certificate, Portfolio URL, Website URL, Intro
+	// =========================================================================
 
 	isComplete := true
+
+	// Identity & Profile (Mandatory)
 	if verification.ProfilePictureURL == nil || *verification.ProfilePictureURL == "" {
 		isComplete = false
 	}
@@ -157,12 +169,30 @@ func (uc *verificationUsecase) UpdateCandidateProfile(ctx context.Context, userI
 	if verification.Occupation == nil || *verification.Occupation == "" {
 		isComplete = false
 	}
+	if verification.Phone == nil || *verification.Phone == "" {
+		isComplete = false
+	}
+
+	// Demographics (Mandatory)
+	if verification.BirthDate == nil {
+		isComplete = false
+	}
+	if verification.DomicileCity == nil || *verification.DomicileCity == "" {
+		isComplete = false
+	}
+
+	// Experience (Mandatory)
 	if verification.JapanExperienceDuration == nil {
 		isComplete = false
 	}
-	if verification.JapaneseCertificateURL == nil || *verification.JapaneseCertificateURL == "" {
+
+	// CV Document Upload (MANDATORY - not JLPT certificate)
+	if verification.CvURL == nil || *verification.CvURL == "" {
 		isComplete = false
 	}
+
+	// NOTE: JapaneseCertificateURL (JLPT) is now OPTIONAL - removed from mandatory checks
+	// NOTE: PortfolioURL is OPTIONAL - not checked
 
 	// Requirement: Work Experience in Japan (Mandatory)
 	if len(experiences) == 0 {
@@ -173,10 +203,14 @@ func (uc *verificationUsecase) UpdateCandidateProfile(ctx context.Context, userI
 		verification.Status = domain.VerificationStatusSubmitted
 		verification.SubmittedAt = time.Now() // Reset submitted time on full submission
 	} else {
-		verification.Status = domain.VerificationStatusPending // Or keep existing status if already submitted? requirement: "Otherwise -> keep status as pending"
+		verification.Status = domain.VerificationStatusPending // Keep status as pending until complete
 	}
 
 	// Keep existing ID, UserID, CreatedAt, etc. The repository update query handles the updated fields.
 
 	return uc.verificationRepo.UpdateProfile(ctx, verification, experiences)
+}
+
+func (uc *verificationUsecase) GetComprehensiveVerificationByID(ctx context.Context, id int64) (*domain.ComprehensiveVerificationResponse, error) {
+	return uc.verificationRepo.GetComprehensiveByID(ctx, id)
 }
