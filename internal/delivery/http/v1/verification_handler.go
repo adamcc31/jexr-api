@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-recruitment-backend/internal/delivery/http/response"
 	"go-recruitment-backend/internal/domain"
+	"go-recruitment-backend/pkg/security"
 	"image"
 	"image/jpeg"
 	_ "image/png" // Register PNG decoder
@@ -19,6 +20,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/image/draw"
 )
+
+// Package-level rate limiter (initialized once)
+var uploadLimiter = security.NewUploadLimiter(10, 50) // 10/min per IP, 50/day per user
 
 type VerificationHandler struct {
 	verificationUC domain.VerificationUsecase
@@ -100,6 +104,24 @@ func (h *VerificationHandler) UpdateProfile(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Router /upload [post]
 func (h *VerificationHandler) UploadFile(c *gin.Context) {
+	// === SECURITY: Rate Limiting ===
+	// Check upload rate limits before processing file
+	userID := c.GetString(string(domain.KeyUserID))
+	ip := c.ClientIP()
+
+	allowed, retryAfter, err := uploadLimiter.AllowUpload(c.Request.Context(), ip, userID)
+	if err != nil {
+		log.Printf("SECURITY: Rate limiter error: %v", err)
+		// Log security event
+		security.DefaultLogger().LogRateLimitTriggered(c.Request.Context(), ip, c.GetHeader("User-Agent"), c.GetString("request_id"), "/upload")
+	}
+	if !allowed {
+		c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
+		security.DefaultLogger().LogRateLimitTriggered(c.Request.Context(), ip, c.GetHeader("User-Agent"), c.GetString("request_id"), "/upload")
+		response.Error(c, http.StatusTooManyRequests, "Upload rate limit exceeded. Please try again later.", nil)
+		return
+	}
+
 	// === SECURITY: File Size Limit ===
 	// Limit request body to 10MB to prevent resource exhaustion
 	const maxUploadSize = 10 * 1024 * 1024 // 10MB
@@ -118,6 +140,13 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 	// === SECURITY: File Size Double-Check ===
 	if file.Size > maxUploadSize {
 		response.Error(c, http.StatusRequestEntityTooLarge, "File too large. Maximum size is 10MB.", nil)
+		return
+	}
+
+	// === SECURITY: Extension Pre-Validation ===
+	// Quick check before reading file content
+	if err := security.ValidateFileExtension(file.Filename); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -197,29 +226,14 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 	contentType := http.DetectContentType(fileBytes)
 	log.Printf("Detected content type: %s (original filename: %s)", contentType, file.Filename)
 
-	// === SECURITY: MIME Type Whitelist ===
-	// Only allow specific file types to prevent web shell uploads
-	// Note: http.DetectContentType only checks first 512 bytes and may return
-	// "application/octet-stream" for some valid documents
-	allowedMimeTypes := map[string]bool{
-		// Images
-		"image/jpeg": true,
-		"image/png":  true,
-		"image/gif":  true,
-		"image/webp": true,
-		// Documents
-		"application/pdf": true,
-		// Word documents (may be detected as these)
-		"application/msword": true,
-		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
-		// Text files
-		"text/plain": true,
-		// Generic binary (fallback - validate extension separately)
-		"application/octet-stream": true,
-	}
-	if !allowedMimeTypes[contentType] {
+	// === SECURITY: 3-Layer File Validation ===
+	// Uses security.ValidateFile for extension + magic bytes + MIME type validation
+	// CRITICAL: application/octet-stream is rejected (prevents arbitrary binary uploads)
+	validationResult := security.ValidateFile(file.Filename, fileBytes, contentType)
+	if !validationResult.Valid {
+		log.Printf("SECURITY: File validation failed for %s: %s", file.Filename, validationResult.Error)
 		response.Error(c, http.StatusBadRequest,
-			fmt.Sprintf("File type not allowed: %s. Allowed types: Images (JPEG, PNG, GIF, WebP), PDF, DOC, DOCX, TXT", contentType), nil)
+			fmt.Sprintf("File rejected: %s. Allowed types: JPG, PNG, GIF, WebP, PDF, DOC, DOCX, TXT", validationResult.Error), nil)
 		return
 	}
 
