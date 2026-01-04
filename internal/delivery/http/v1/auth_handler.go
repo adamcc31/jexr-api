@@ -8,6 +8,7 @@ import (
 	"go-recruitment-backend/internal/delivery/http/response"
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/apperror"
+	"go-recruitment-backend/pkg/security"
 	"net/http"
 	"net/url"
 	"time"
@@ -19,13 +20,15 @@ type AuthHandler struct {
 	authUC       domain.AuthUsecase
 	onboardingUC domain.OnboardingUsecase
 	config       *config.Config
+	loginTracker *security.LoginTracker
 }
 
-func NewAuthHandler(public *gin.RouterGroup, protected *gin.RouterGroup, authUC domain.AuthUsecase, onboardingUC domain.OnboardingUsecase, paramsConfig *config.Config) {
+func NewAuthHandler(public *gin.RouterGroup, protected *gin.RouterGroup, authUC domain.AuthUsecase, onboardingUC domain.OnboardingUsecase, paramsConfig *config.Config, loginTracker *security.LoginTracker) {
 	handler := &AuthHandler{
 		authUC:       authUC,
 		onboardingUC: onboardingUC,
 		config:       paramsConfig,
+		loginTracker: loginTracker,
 	}
 
 	// Public Routes
@@ -228,6 +231,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// SECURITY: Check if user is blocked due to excessive failed attempts
+	// Guard against nil loginTracker (graceful degradation if not configured)
+	if h.loginTracker != nil {
+		isBlocked, err := h.loginTracker.IsBlocked(c.Request.Context(), req.Email, c.ClientIP())
+		if err != nil {
+			// Log error but proceed (fail open) - Redis might be unavailable
+			fmt.Printf("Error checking block status: %v\n", err)
+		}
+		if isBlocked {
+			// Return 429 Too Many Requests
+			ttl, _, _ := h.loginTracker.GetBlockTTL(c.Request.Context(), req.Email)
+			minutes := int(ttl.Minutes()) + 1
+			c.Error(apperror.New(http.StatusTooManyRequests, fmt.Sprintf("Account temporarily blocked due to too many failed attempts. Please try again in %d minutes.", minutes), nil))
+			return
+		}
+	}
+
 	// Use direct HTTP call to Supabase /token/grant endpoint (OTP/Password)
 	// Actually for email/password it's /auth/v1/token?grant_type=password
 	// Ref: https://supabase.com/docs/reference/api/auth-token
@@ -290,6 +310,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		}
 
 		c.Error(apperror.Unauthorized(msg))
+
+		// SECURITY: Record failed attempt
+		if h.loginTracker != nil {
+			reqID := ""
+			if v, exists := c.Get("RequestID"); exists {
+				reqID = v.(string)
+			}
+			_, _, err := h.loginTracker.RecordFailedAttempt(c.Request.Context(), req.Email, c.ClientIP(), c.Request.UserAgent(), reqID)
+			if err != nil {
+				fmt.Printf("Failed to record login attempt: %v\n", err)
+			}
+		}
+
 		return
 	}
 
@@ -300,6 +333,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err := json.NewDecoder(resp.Body).Decode(&supabaseUser); err != nil {
 		c.Error(apperror.New(http.StatusInternalServerError, "Failed to parse login response", err))
 		return
+	}
+
+	// SECURITY: Clear failed attempts on successful login
+	if h.loginTracker != nil {
+		if err := h.loginTracker.ClearAttempts(c.Request.Context(), req.Email, c.ClientIP()); err != nil {
+			fmt.Printf("Failed to clear attempts: %v\n", err)
+		}
 	}
 
 	// Sync User (idempotent - handles ID mismatches gracefully)

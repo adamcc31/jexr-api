@@ -61,3 +61,44 @@ A clean architecture backend for recruitment system using Golang, Gin, Postgres 
 - `POST /v1/jobs`: Create job (Auth required)
 - `GET /v1/jobs`: List jobs
 - `GET /v1/jobs/:id`: Job details
+
+## Security Features
+
+### 1. Redis-Backed Rate Limiting
+- **Global Limit**: 100 requests/minute per IP (configurable via `RATE_LIMIT_GLOBAL_THRESHOLD`).
+- **Auth Endpoint Limit**: 10 requests/minute per IP (configurable).
+- **Login Endpoint Limit**: 5 attempts/minute per IP.
+- **Provider**: Upstash Redis (configured via `UPSTASH_REDIS_URL`).
+- **Fallback**: In-memory rate limiting if Redis is unavailable (fail-open for general, fail-closed for auth).
+
+### 2. Failed Login Blocking
+- **Threshold**: 5 failed attempts in 15 minutes triggers a temp block.
+- **Block Duration**: 15 minutes (configurable via `FAILED_LOGIN_BLOCK_MINUTES`).
+- **Tracking**: Redis keys `fail:login:user:<email>` and `blocked:login:user:<email>`.
+
+### 3. Security Logging (Audit Trail)
+- **Format**: Structured JSON via Zap logger.
+- **Events Logged**: `login_failed`, `login_blocked`, `rate_limit_triggered` (with error details).
+- **Persistence**: Logs are persisted to `security_events` table (90-day retention policy recommended).
+- **PII Protection**: Sensitive fields (emails) are masked or hashed.
+
+### 4. Input Validation
+- **Candidate Profile**: Strict validation for names (no numbers/emoji) and bio.
+- **Responses**: Structured 400 errors with specific field validation messages.
+
+### Configuration (Environment Variables)
+```bash
+# Redis
+UPSTASH_REDIS_URL=rediss://default:password@...
+UPSTASH_REDIS_PASSWORD=...
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_SECONDS=60
+RATE_LIMIT_GLOBAL_THRESHOLD=100
+RATE_LIMIT_LOGIN_THRESHOLD=5
+FAILED_LOGIN_MAX_ATTEMPTS=5
+FAILED_LOGIN_BLOCK_MINUTES=15
+
+# Security Logging
+SECURITY_LOG_TO_DB=true
+```

@@ -6,6 +6,7 @@ import (
 	"go-recruitment-backend/internal/delivery/http/response"
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/auth"
+	"go-recruitment-backend/pkg/security"
 	"net/http"
 	"os"
 
@@ -24,6 +25,7 @@ type RouterDeps struct {
 	CompanyProfileUC domain.CompanyProfileUsecase // Added for company profile endpoints
 	ContactUC        domain.ContactUsecase        // Added for contact form
 	OnboardingUC     domain.OnboardingUsecase     // Added for onboarding wizard
+	LoginTracker     *security.LoginTracker       // Security: Login blocking
 	JWKSProvider     *auth.Provider
 	Config           *config.Config
 }
@@ -61,7 +63,7 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 	protected := v1.Group("")
 	protected.Use(middleware.AuthMiddleware(deps.JWKSProvider, deps.Config, deps.AuthUC))
 	{
-		NewAuthHandler(v1, protected, deps.AuthUC, deps.OnboardingUC, deps.Config)
+		NewAuthHandler(v1, protected, deps.AuthUC, deps.OnboardingUC, deps.Config, deps.LoginTracker)
 		NewJobHandler(v1, protected, deps.JobUC)
 		NewCandidateHandler(protected, deps.CandidateUC)
 		NewApplicationHandler(protected, deps.ApplicationUC)                                // Application routes

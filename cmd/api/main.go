@@ -19,6 +19,9 @@ import (
 	"go-recruitment-backend/pkg/database"
 	"go-recruitment-backend/pkg/email"
 	"go-recruitment-backend/pkg/logger"
+	"go-recruitment-backend/pkg/redis"
+	"go-recruitment-backend/pkg/security"
+	"go-recruitment-backend/pkg/validation"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -60,6 +63,34 @@ func main() {
 	}
 	defer dbPool.Close()
 
+	// 2b. Initialize Redis
+	redisCfg := redis.Config{
+		URL:      cfg.UpstashRedisURL,
+		Password: cfg.UpstashRedisPassword,
+	}
+	if err := redis.Initialize(redisCfg); err != nil {
+		logger.Log.Warn("Redis initialization failed - rate limiting will fall back to in-memory", "error", err)
+	} else {
+		logger.Log.Info("Redis initialized successfully")
+		defer redis.Close()
+	}
+
+	// 2c. Initialize Security Logger
+	// Use GIN_MODE to determine environment
+	env := "development"
+	if os.Getenv("GIN_MODE") == "release" {
+		env = "production"
+	}
+	_ = security.InitSecurityLogger("j-expert-backend", env)
+
+	// 2d. Initialize Login Tracker
+	loginTracker := security.NewLoginTracker(security.LoginTrackerConfig{
+		MaxAttempts:   cfg.FailedLoginMaxAttempts,
+		AttemptWindow: time.Duration(cfg.RateLimitWindowSeconds) * time.Second, // Track attempts within rate limit window
+		BlockDuration: time.Duration(cfg.FailedLoginBlockMinutes) * time.Minute,
+		UseIPTracking: true,
+	})
+
 	// 4. Setup Repositories
 	userRepo := postgres.NewUserRepository(dbPool)
 	jobRepo := postgres.NewJobRepository(dbPool)
@@ -78,6 +109,7 @@ func main() {
 
 	// 6. Setup UseCases
 	validate := validator.New()
+	validation.RegisterValidators(validate) // Register custom validators
 	authUC := usecase.NewAuthUsecase(userRepo)
 	jobUC := usecase.NewJobUsecase(jobRepo, companyProfileRepo)
 	candidateUC := usecase.NewCandidateUsecase(candidateRepo, validate)
@@ -104,6 +136,7 @@ func main() {
 		CompanyProfileUC: companyProfileUC,
 		ContactUC:        contactUC,
 		OnboardingUC:     onboardingUC,
+		LoginTracker:     loginTracker,
 		JWKSProvider:     jwksProvider,
 		Config:           cfg,
 	})

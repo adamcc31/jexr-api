@@ -12,8 +12,8 @@ import (
 type CandidateProfile struct {
 	ID                       int64          `json:"id"`
 	UserID                   string         `json:"user_id" validate:"required"`
-	Title                    string         `json:"title" validate:"required,min=3,max=100"` // Keeping for backward compat or strictly display title?
-	Bio                      string         `json:"bio" validate:"max=500"`
+	Title                    string         `json:"title" validate:"required,min=3,max=100,valid_name"` // Keeping for backward compat or strictly display title?
+	Bio                      string         `json:"bio" validate:"max=500,no_emoji"`
 	HighestEducation         string         `json:"highest_education"`
 	MajorField               string         `json:"major_field"`
 	DesiredJobPosition       string         `json:"desired_job_position"`       // Code/ID if master exists
@@ -47,8 +47,8 @@ type WorkExperience struct {
 	UserID         string    `json:"user_id"`
 	CountryCode    string    `json:"country_code" validate:"required,len=2"` // ISO-2
 	ExperienceType string    `json:"experience_type" validate:"required,oneof=LOCAL OVERSEAS"`
-	CompanyName    string    `json:"company_name" validate:"required"`
-	JobTitle       string    `json:"job_title" validate:"required"`
+	CompanyName    string    `json:"company_name" validate:"required,no_emoji"`
+	JobTitle       string    `json:"job_title" validate:"required,valid_name"`
 	StartDate      string    `json:"start_date" validate:"required"` // Format: YYYY-MM-DD
 	EndDate        *string   `json:"end_date"`                       // Nullable, Format: YYYY-MM-DD
 	Description    string    `json:"description"`
