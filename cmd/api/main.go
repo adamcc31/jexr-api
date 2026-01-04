@@ -81,7 +81,14 @@ func main() {
 	if os.Getenv("GIN_MODE") == "release" {
 		env = "production"
 	}
-	_ = security.InitSecurityLogger("j-expert-backend", env)
+	secLogger := security.InitSecurityLogger("j-expert-backend", env)
+
+	// 2e. Setup Security Event Persistence (if enabled)
+	if cfg.SecurityLogToDB {
+		secEventRepo := security.NewSecurityEventRepository(dbPool)
+		secLogger.SetPersistFunc(secEventRepo.CreatePersistFunc())
+		logger.Log.Info("Security event database persistence enabled")
+	}
 
 	// 2d. Initialize Login Tracker
 	loginTracker := security.NewLoginTracker(security.LoginTrackerConfig{
