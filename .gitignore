@@ -24,3 +24,7 @@ bin/
 
 # --- OS Specific ---
 Thumbs.db
+
+# --- test file ---
+test.exe
+fake.jpg

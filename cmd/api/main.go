@@ -107,6 +107,7 @@ func main() {
 	applicationRepo := postgres.NewApplicationRepository(dbPool)
 	companyProfileRepo := postgres.NewCompanyProfileRepository(dbPool)
 	onboardingRepo := postgres.NewOnboardingRepository(dbPool)
+	atsRepo := postgres.NewATSRepository(dbPool)
 
 	// 5. Setup Email Service
 	emailService := email.NewEmailService(cfg)
@@ -126,6 +127,7 @@ func main() {
 	companyProfileUC := usecase.NewCompanyProfileUsecase(companyProfileRepo, verificationRepo)
 	contactUC := usecase.NewContactUsecase(emailService)
 	onboardingUC := usecase.NewOnboardingUsecase(onboardingRepo, validate)
+	atsUC := usecase.NewATSUsecase(atsRepo)
 
 	// 7. Setup Auth Provider (JWKS)
 	// URL construction is now safer due to config sanitization
@@ -143,6 +145,7 @@ func main() {
 		CompanyProfileUC: companyProfileUC,
 		ContactUC:        contactUC,
 		OnboardingUC:     onboardingUC,
+		ATSUC:            atsUC,
 		LoginTracker:     loginTracker,
 		JWKSProvider:     jwksProvider,
 		Config:           cfg,
