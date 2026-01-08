@@ -153,6 +153,11 @@ func (sl *SecurityLogger) Log(ctx context.Context, event SecurityEvent) {
 	// Persist to DB if configured
 	if sl.persistFunc != nil {
 		go func(e SecurityEvent) {
+			// Use Background context because request context might be canceled
+			// Ideally we should use a timeout context here
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
 			if err := sl.persistFunc(ctx, e); err != nil {
 				sl.zapLogger.Error("Failed to persist security event", zap.Error(err))
 			}
