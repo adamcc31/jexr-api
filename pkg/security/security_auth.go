@@ -480,15 +480,19 @@ func (s *SecurityAuthService) getUserByUsername(ctx context.Context, username st
 	`
 
 	user := &SecurityUser{}
+	var totpSecret *string
 	var lastLoginIP *string
 	err := s.db.QueryRow(ctx, query, username).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role,
-		&user.TOTPSecret, &user.TOTPEnabled, &user.IsActive,
+		&totpSecret, &user.TOTPEnabled, &user.IsActive,
 		&user.LastLoginAt, &lastLoginIP, &user.FailedLoginAttempts, &user.LockedUntil,
 		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if totpSecret != nil {
+		user.TOTPSecret = *totpSecret
 	}
 	if lastLoginIP != nil {
 		user.LastLoginIP = *lastLoginIP
