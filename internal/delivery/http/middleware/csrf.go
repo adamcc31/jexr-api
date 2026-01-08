@@ -4,12 +4,23 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"time"
 
 	"go-recruitment-backend/internal/delivery/http/response"
 
 	"github.com/gin-gonic/gin"
 )
+
+// isSecurityDashboardRoute checks if the path is a security dashboard route
+// Security dashboard uses hidden path prefix that starts with /v1/sec-ops-
+// These routes are protected by IP allowlist + MFA, not CSRF
+func isSecurityDashboardRoute(path string) bool {
+	// Match pattern: /v1/sec-ops-* (hidden security dashboard path)
+	return strings.HasPrefix(path, "/v1/sec-ops-") ||
+		strings.Contains(path, "/sec-ops-") ||
+		strings.Contains(path, "/sec-console")
+}
 
 const (
 	// CSRFTokenCookieName is the name of the cookie that stores the CSRF token
@@ -115,6 +126,14 @@ func CSRFMiddleware() gin.HandlerFunc {
 					)
 				}
 			}
+			c.Next()
+			return
+		}
+
+		// Security Dashboard routes are exempt from CSRF
+		// They have their own layered protection: IP Allowlist → TOTP MFA → Session Auth
+		// CSRF is designed for browser-based attacks; security dashboard uses API clients
+		if isSecurityDashboardRoute(path) {
 			c.Next()
 			return
 		}
