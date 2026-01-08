@@ -1,9 +1,12 @@
 package v1
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"go-recruitment-backend/config"
 	"go-recruitment-backend/internal/delivery/http/middleware"
 	"go-recruitment-backend/internal/delivery/http/response"
+	securityHandler "go-recruitment-backend/internal/delivery/http/security"
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/auth"
 	"go-recruitment-backend/pkg/security"
@@ -29,6 +32,9 @@ type RouterDeps struct {
 	LoginTracker     *security.LoginTracker       // Security: Login blocking
 	JWKSProvider     *auth.Provider
 	Config           *config.Config
+	// Security Dashboard dependencies
+	SecurityDashboardUC domain.SecurityDashboardUsecase
+	SecurityAuthService *security.SecurityAuthService
 }
 
 func NewRouter(deps RouterDeps) *gin.Engine {
@@ -75,5 +81,29 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 		NewATSHandler(protected, deps.ATSUC)                                                // ATS (Applicant Tracking System) routes
 	}
 
+	// Security Dashboard - COMPLETELY ISOLATED authentication surface
+	// Uses non-discoverable path as NOISE LAYER (not security control)
+	// Real security: IP Allowlist → MFA → RBAC → Audit
+	if deps.SecurityDashboardUC != nil && deps.SecurityAuthService != nil {
+		secDashboardPath := generateSecurityDashboardPath()
+		secDashboard := v1.Group("/" + secDashboardPath)
+		handler := securityHandler.NewSecurityDashboardHandler(deps.SecurityDashboardUC, deps.SecurityAuthService)
+		handler.RegisterRoutes(secDashboard)
+	}
+
 	return r
+}
+
+// generateSecurityDashboardPath creates a deterministic but non-obvious path
+// This is a NOISE LAYER only - not a security control
+// Real security is enforced by IP allowlist, MFA, and RBAC
+func generateSecurityDashboardPath() string {
+	// Use a combination that's stable but not guessable
+	// In production, this could be set via environment variable
+	if path := os.Getenv("SECURITY_DASHBOARD_PATH"); path != "" {
+		return path
+	}
+	// Default: hash-based path (deterministic but obscure)
+	hash := sha256.Sum256([]byte("j-expert-security-ops-console-v1"))
+	return "sec-ops-" + hex.EncodeToString(hash[:8])
 }
