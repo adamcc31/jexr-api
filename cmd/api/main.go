@@ -129,6 +129,12 @@ func main() {
 	onboardingUC := usecase.NewOnboardingUsecase(onboardingRepo, validate)
 	atsUC := usecase.NewATSUsecase(atsRepo)
 
+	// 6b. Setup Security Dashboard (isolated authentication)
+	securityDashboardRepo := postgres.NewSecurityDashboardRepository(dbPool)
+	securityAuthService := security.NewSecurityAuthService(dbPool, security.DefaultSecurityAuthConfig())
+	securityDashboardUC := usecase.NewSecurityDashboardUsecase(securityDashboardRepo, securityAuthService, nil)
+	logger.Log.Info("Security Dashboard initialized")
+
 	// 7. Setup Auth Provider (JWKS)
 	// URL construction is now safer due to config sanitization
 	jwksURL := fmt.Sprintf("%s/auth/v1/.well-known/jwks.json", cfg.SupabaseUrl)
@@ -136,19 +142,21 @@ func main() {
 
 	// 8. Setup Router
 	router := v1.NewRouter(v1.RouterDeps{
-		AuthUC:           authUC,
-		JobUC:            jobUC,
-		CandidateUC:      candidateUC,
-		ApplicationUC:    applicationUC,
-		AdminUC:          adminUC,
-		VerificationUC:   verificationUC,
-		CompanyProfileUC: companyProfileUC,
-		ContactUC:        contactUC,
-		OnboardingUC:     onboardingUC,
-		ATSUC:            atsUC,
-		LoginTracker:     loginTracker,
-		JWKSProvider:     jwksProvider,
-		Config:           cfg,
+		AuthUC:              authUC,
+		JobUC:               jobUC,
+		CandidateUC:         candidateUC,
+		ApplicationUC:       applicationUC,
+		AdminUC:             adminUC,
+		VerificationUC:      verificationUC,
+		CompanyProfileUC:    companyProfileUC,
+		ContactUC:           contactUC,
+		OnboardingUC:        onboardingUC,
+		ATSUC:               atsUC,
+		LoginTracker:        loginTracker,
+		JWKSProvider:        jwksProvider,
+		Config:              cfg,
+		SecurityDashboardUC: securityDashboardUC,
+		SecurityAuthService: securityAuthService,
 	})
 
 	// 9. Start Server
