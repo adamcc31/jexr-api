@@ -28,3 +28,7 @@ Thumbs.db
 # --- test file ---
 test.exe
 fake.jpg
+
+# --- Internal Documentation ---
+docs/
+scripts/

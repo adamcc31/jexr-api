@@ -161,46 +161,34 @@ func (s *SecurityAuthService) ValidateIP(ctx context.Context, ipStr string) (boo
 
 // Authenticate validates username/password and returns the user if successful
 func (s *SecurityAuthService) Authenticate(ctx context.Context, username, password, ip, userAgent string) (*SecurityUser, error) {
-	fmt.Printf("[DEBUG] Authenticating user: %s, IP: %s\n", username, ip)
-
 	// First validate IP
 	allowed, err := s.ValidateIP(ctx, ip)
 	if err != nil {
-		fmt.Printf("[DEBUG] IP validation error: %v\n", err)
 		return nil, err
 	}
 	if !allowed {
-		fmt.Println("[DEBUG] IP access denied")
 		return nil, errors.New("access denied: IP not in allowlist")
 	}
 
 	// Load user
 	user, err := s.getUserByUsername(ctx, username)
 	if err != nil {
-		fmt.Printf("[DEBUG] User lookup error: %v\n", err)
 		s.logFailedLogin(ctx, username, ip, userAgent, "user_not_found")
 		return nil, errors.New("invalid credentials")
 	}
 
-	fmt.Printf("[DEBUG] User found: %s, ID: %s, Active: %v\n", user.Username, user.ID, user.IsActive)
-	fmt.Printf("[DEBUG] Hash from DB: %s (len: %d)\n", user.PasswordHash, len(user.PasswordHash))
-	fmt.Printf("[DEBUG] Input password: %s (len: %d)\n", password, len(password))
-
 	// Check if locked
 	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
-		fmt.Println("[DEBUG] Account is locked")
 		s.logFailedLogin(ctx, username, ip, userAgent, "account_locked")
 		return nil, fmt.Errorf("account locked until %s", user.LockedUntil.Format(time.RFC3339))
 	}
 
 	// Validate password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		fmt.Printf("[DEBUG] Password mismatch: %v\n", err)
 		s.incrementFailedAttempts(ctx, user.ID, ip, userAgent)
 		return nil, errors.New("invalid credentials")
 	}
 
-	fmt.Println("[DEBUG] Authentication successful")
 	return user, nil
 }
 
