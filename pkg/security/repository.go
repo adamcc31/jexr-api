@@ -32,6 +32,8 @@ func (r *SecurityEventRepository) PersistEvent(ctx context.Context, event Securi
 	var detailsJSON []byte
 	if len(event.Details) > 0 {
 		detailsJSON, _ = json.Marshal(event.Details)
+	} else {
+		detailsJSON = []byte("null") // Valid JSON null for empty details
 	}
 
 	// Handle IP address - use nil for empty strings
