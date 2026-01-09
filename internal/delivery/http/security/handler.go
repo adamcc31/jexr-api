@@ -194,7 +194,17 @@ func (h *SecurityDashboardHandler) VerifyTOTP(c *gin.Context) {
 	}
 
 	// Set session cookie
-	c.SetCookie("security_session", token, int(session.ExpiresAt.Sub(time.Now()).Seconds()), "/", "", true, true)
+	// Set session cookie with SameSite=None for Cross-Origin support
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "security_session",
+		Value:    token,
+		Path:     "/",
+		Domain:   "",
+		Expires:  session.ExpiresAt,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	response.Success(c, http.StatusOK, "Authentication successful", gin.H{
 		"sessionId": session.ID,
@@ -223,7 +233,16 @@ func (h *SecurityDashboardHandler) Logout(c *gin.Context) {
 	}
 
 	// Clear cookie
-	c.SetCookie("security_session", "", -1, "/", "", true, true)
+	// Clear cookie
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "security_session",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	response.Success(c, http.StatusOK, "Logged out successfully", nil)
 }
