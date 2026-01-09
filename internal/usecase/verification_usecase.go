@@ -199,9 +199,11 @@ func (uc *verificationUsecase) UpdateCandidateProfile(ctx context.Context, userI
 	// the Professional Profile form. The old japan_work_experiences is deprecated.
 	// Removed: if len(experiences) == 0 { isComplete = false }
 
+	// Always update submittedAt on every profile modification for accurate admin sorting
+	verification.SubmittedAt = time.Now()
+
 	if isComplete {
 		verification.Status = domain.VerificationStatusSubmitted
-		verification.SubmittedAt = time.Now() // Reset submitted time on full submission
 	} else {
 		verification.Status = domain.VerificationStatusPending // Keep status as pending until complete
 	}

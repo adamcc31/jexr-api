@@ -146,6 +146,9 @@ type VerificationRepository interface {
 
 	// Comprehensive data for admin verification detail
 	GetComprehensiveByID(ctx context.Context, id int64) (*ComprehensiveVerificationResponse, error)
+
+	// Update submitted_at timestamp when professional profile is updated
+	UpdateSubmittedAt(ctx context.Context, userID string, submittedAt time.Time) error
 }
 
 // VerificationUsecase interface

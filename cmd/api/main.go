@@ -120,7 +120,7 @@ func main() {
 	validation.RegisterValidators(validate) // Register custom validators
 	authUC := usecase.NewAuthUsecase(userRepo)
 	jobUC := usecase.NewJobUsecase(jobRepo, companyProfileRepo)
-	candidateUC := usecase.NewCandidateUsecase(candidateRepo, validate)
+	candidateUC := usecase.NewCandidateUsecase(candidateRepo, verificationRepo, validate)
 	adminUC := usecase.NewAdminUsecase(adminRepo)
 	verificationUC := usecase.NewVerificationUsecase(verificationRepo, userRepo)
 	applicationUC := usecase.NewApplicationUsecase(applicationRepo, jobRepo, verificationRepo)

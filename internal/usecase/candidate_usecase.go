@@ -5,19 +5,23 @@ import (
 	"fmt"
 	"go-recruitment-backend/internal/domain"
 	"go-recruitment-backend/pkg/apperror"
+	"log"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 )
 
 type candidateUsecase struct {
-	repo     domain.CandidateRepository
-	validate *validator.Validate
+	repo             domain.CandidateRepository
+	verificationRepo domain.VerificationRepository
+	validate         *validator.Validate
 }
 
-func NewCandidateUsecase(repo domain.CandidateRepository, validate *validator.Validate) domain.CandidateUsecase {
+func NewCandidateUsecase(repo domain.CandidateRepository, verificationRepo domain.VerificationRepository, validate *validator.Validate) domain.CandidateUsecase {
 	return &candidateUsecase{
-		repo:     repo,
-		validate: validate,
+		repo:             repo,
+		verificationRepo: verificationRepo,
+		validate:         validate,
 	}
 }
 
@@ -102,7 +106,20 @@ func (u *candidateUsecase) UpdateFullProfile(ctx context.Context, userID string,
 		}
 	}
 
-	return u.repo.UpsertFullProfile(ctx, req)
+	err := u.repo.UpsertFullProfile(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	// Update verification submitted_at timestamp for correct admin sorting
+	if u.verificationRepo != nil {
+		if err := u.verificationRepo.UpdateSubmittedAt(ctx, authID, time.Now()); err != nil {
+			// Log but don't fail - profile was saved successfully
+			log.Printf("Warning: failed to update verification submitted_at: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (u *candidateUsecase) GetMasterSkills(ctx context.Context) ([]domain.Skill, error) {

@@ -61,7 +61,7 @@ func (m *MockUserRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 func TestCandidateIDOR(t *testing.T) {
 	mockRepo := new(MockCandidateRepo)
 	validate := validator.New()
-	uc := usecase.NewCandidateUsecase(mockRepo, validate)
+	uc := usecase.NewCandidateUsecase(mockRepo, nil, validate)
 
 	t.Run("Should fail when Context UserID does not match Argument UserID", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), domain.KeyUserID, "user1")
@@ -100,7 +100,7 @@ func TestAuthPrivilege(t *testing.T) {
 func TestCandidateUpdateValidation(t *testing.T) {
 	mockRepo := new(MockCandidateRepo)
 	validate := validator.New()
-	uc := usecase.NewCandidateUsecase(mockRepo, validate)
+	uc := usecase.NewCandidateUsecase(mockRepo, nil, validate)
 
 	t.Run("Should fail if required fields are missing", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), domain.KeyUserID, "user1")

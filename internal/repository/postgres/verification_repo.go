@@ -353,6 +353,18 @@ func (r *verificationRepo) GetWorkExperiences(ctx context.Context, verificationI
 	return experiences, nil
 }
 
+// UpdateSubmittedAt updates the submitted_at timestamp for a user's verification record
+// Called when professional profile is updated to ensure admin sorting works correctly
+func (r *verificationRepo) UpdateSubmittedAt(ctx context.Context, userID string, submittedAt time.Time) error {
+	query := `
+		UPDATE account_verifications
+		SET submitted_at = $2, updated_at = $3
+		WHERE user_id = $1
+	`
+	_, err := r.db.Exec(ctx, query, userID, submittedAt, time.Now())
+	return err
+}
+
 // GetComprehensiveByID fetches ALL candidate data for admin verification review
 func (r *verificationRepo) GetComprehensiveByID(ctx context.Context, id int64) (*domain.ComprehensiveVerificationResponse, error) {
 	// 1. Get account_verification by ID
