@@ -51,6 +51,7 @@ func (h *SecurityDashboardHandler) RegisterRoutes(router *gin.RouterGroup) {
 	protected.Use(middleware.ReadOnlyModeMiddleware())
 	{
 		// Read-only routes (OBSERVER+)
+		protected.GET("/auth/me", h.GetCurrentUser) // Get current authenticated user
 		protected.GET("/stats", h.GetStats)
 		protected.GET("/events", h.ListEvents)
 		protected.GET("/heatmap", h.GetHeatmap)
@@ -83,6 +84,45 @@ func (h *SecurityDashboardHandler) RegisterRoutes(router *gin.RouterGroup) {
 }
 
 // === Auth Handlers ===
+
+// GetCurrentUser returns the currently authenticated user's info
+// Used by frontend to verify session and populate user state
+func (h *SecurityDashboardHandler) GetCurrentUser(c *gin.Context) {
+	session, exists := c.Get("security_session")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "No active session", nil)
+		return
+	}
+
+	s, ok := session.(*security.SecuritySession)
+	if !ok {
+		response.Error(c, http.StatusInternalServerError, "Invalid session type", nil)
+		return
+	}
+
+	user, exists := c.Get("security_user")
+	if !exists {
+		response.Error(c, http.StatusUnauthorized, "User not found", nil)
+		return
+	}
+
+	u, ok := user.(*security.SecurityUser)
+	if !ok {
+		response.Error(c, http.StatusInternalServerError, "Invalid user type", nil)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User retrieved", gin.H{
+		"user": gin.H{
+			"id":       u.ID,
+			"username": u.Username,
+			"email":    u.Email,
+			"role":     u.Role,
+		},
+		"sessionId": s.ID,
+		"expiresAt": s.ExpiresAt,
+	})
+}
 
 // Login handles initial username/password authentication
 func (h *SecurityDashboardHandler) Login(c *gin.Context) {
