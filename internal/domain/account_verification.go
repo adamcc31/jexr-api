@@ -34,6 +34,23 @@ const (
 // ValidJapaneseSpeakingLevels for validation
 var ValidJapaneseSpeakingLevels = []string{JapaneseSpeakingNative, JapaneseSpeakingFluent, JapaneseSpeakingBasic, JapaneseSpeakingPassive}
 
+// Religion constants (Indonesian standard categories)
+const (
+	ReligionIslam    = "ISLAM"
+	ReligionKristen  = "KRISTEN"
+	ReligionKatolik  = "KATOLIK"
+	ReligionHindu    = "HINDU"
+	ReligionBuddha   = "BUDDHA"
+	ReligionKonghucu = "KONGHUCU"
+	ReligionOther    = "OTHER"
+)
+
+// ValidReligions for validation
+var ValidReligions = []string{
+	ReligionIslam, ReligionKristen, ReligionKatolik,
+	ReligionHindu, ReligionBuddha, ReligionKonghucu, ReligionOther,
+}
+
 // AccountVerification represents a verification record
 type AccountVerification struct {
 	ID          int64      `json:"id"`
@@ -63,6 +80,7 @@ type AccountVerification struct {
 	JapaneseLevel           *string `json:"japanese_level"`            // N5, N4, N3, N2, N1
 
 	// HR Candidate Data: Identity & Demographics
+	Gender        *string    `json:"gender"` // Added Gender field
 	BirthDate     *time.Time `json:"birth_date,omitempty"`
 	DomicileCity  *string    `json:"domicile_city,omitempty"`
 	MaritalStatus *string    `json:"marital_status,omitempty"` // SINGLE, MARRIED, DIVORCED
@@ -82,6 +100,19 @@ type AccountVerification struct {
 
 	// HR Candidate Data: Supporting Documents
 	SupportingCertificatesURL []string `json:"supporting_certificates_url,omitempty"`
+
+	// HR Candidate Data: Physical Attributes
+	HeightCm *int16   `json:"height_cm,omitempty" validate:"omitempty,min=50,max=300"`
+	WeightKg *float32 `json:"weight_kg,omitempty" validate:"omitempty,min=10,max=500"`
+
+	// HR Candidate Data: Personal Information
+	Religion *string `json:"religion,omitempty" validate:"omitempty,oneof=ISLAM KRISTEN KATOLIK HINDU BUDDHA KONGHUCU OTHER"`
+
+	// JLPT Certificate Extension
+	JLPTCertificateIssueYear *int16 `json:"jlpt_certificate_issue_year,omitempty" validate:"omitempty,min=1984,max_current_year"`
+
+	// Onboarding: Interview Preferences
+	WillingToInterviewOnsite *bool `json:"willing_to_interview_onsite,omitempty"`
 
 	// Additional data for display
 	UserProfile *UserProfileSummary `json:"user_profile,omitempty"`

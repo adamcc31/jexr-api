@@ -106,7 +106,7 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 		Disable bool `json:"disable"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.Error(apperror.BadRequest("Invalid request body"))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (h *AdminHandler) DisableUser(c *gin.Context) {
 func (h *AdminHandler) CreateUser(c *gin.Context) {
 	var req domain.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -165,7 +165,7 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 
 	var req domain.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -251,7 +251,7 @@ func (h *AdminHandler) VerifyCompany(c *gin.Context) {
 		Reason string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.Error(apperror.BadRequest("Invalid request body"))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -313,7 +313,7 @@ func (h *AdminHandler) HideJob(c *gin.Context) {
 		Reason string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.Error(apperror.BadRequest("Invalid request body"))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -350,7 +350,7 @@ func (h *AdminHandler) FlagJob(c *gin.Context) {
 		Reason string `json:"reason"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.Error(apperror.BadRequest("Invalid request body"))
+		response.ValidationError(c, err)
 		return
 	}
 

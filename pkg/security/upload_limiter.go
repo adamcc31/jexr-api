@@ -65,9 +65,9 @@ func NewUploadLimiter(perMin, perDay int) *UploadLimiter {
 func (ul *UploadLimiter) AllowUpload(ctx context.Context, ip, userID string) (bool, int, error) {
 	client := redis.Client()
 	if client == nil {
-		// FAIL CLOSED: Block uploads if Redis unavailable
-		// This is a security-conscious decision to prevent abuse
-		return false, 60, fmt.Errorf("rate limiter unavailable - Redis not connected")
+		// FAIL OPEN: Allow uploads if Redis unavailable (Dev/Emergency mode)
+		// This prevents blocking users when infrastructure is having issues
+		return true, 0, fmt.Errorf("rate limiter unavailable - Redis not connected")
 	}
 
 	now := time.Now().Unix()

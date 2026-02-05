@@ -37,7 +37,7 @@ func NewContactHandler(public *gin.RouterGroup, contactUC domain.ContactUsecase)
 func (h *ContactHandler) SubmitContact(c *gin.Context) {
 	var req domain.ContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 

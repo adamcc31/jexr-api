@@ -46,7 +46,7 @@ func (u *candidateUsecase) UpdateProfile(ctx context.Context, profile *domain.Ca
 	profile.UserID = authID
 
 	if err := u.validate.Struct(profile); err != nil {
-		return apperror.BadRequest(err.Error())
+		return err
 	}
 	return u.repo.Update(ctx, profile)
 }
@@ -95,10 +95,10 @@ func (u *candidateUsecase) UpdateFullProfile(ctx context.Context, userID string,
 
 	// Validation
 	if err := u.validate.Struct(&req.Profile); err != nil {
-		return apperror.BadRequest("Profile Validation: " + err.Error())
+		return err
 	}
 	if err := u.validate.Struct(&req.Details); err != nil {
-		return apperror.BadRequest("Details Validation: " + err.Error())
+		return err
 	}
 	for i, we := range req.WorkExperiences {
 		if err := u.validate.Struct(we); err != nil {

@@ -75,7 +75,7 @@ func (h *ApplicationHandler) ApplyToJob(c *gin.Context) {
 	// 3. Bind request
 	var req ApplyToJobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -221,7 +221,7 @@ func (h *ApplicationHandler) UpdateApplicationStatus(c *gin.Context) {
 
 	var req UpdateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 

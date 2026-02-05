@@ -113,15 +113,26 @@ type OnboardingSubmitRequest struct {
 
 	// Step 3: Company Preferences
 	CompanyPreferences []CompanyPreferenceKey `json:"company_preferences" validate:"required,min=1"`
+
+	// Step 4: Interview Willingness
+	WillingToInterviewOnsite *bool `json:"willing_to_interview_onsite"`
+
+	// Step 4: Personal Details
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	Gender    *string `json:"gender,omitempty"`
+	BirthDate *string `json:"birth_date,omitempty"` // Format: YYYY-MM-DD
 }
 
 // OnboardingData is the response for fetching saved onboarding data
 type OnboardingData struct {
-	Interests          []InterestKey          `json:"interests"`
-	LPKSelection       LPKSelection           `json:"lpk_selection"`
-	LPKName            *string                `json:"lpk_name,omitempty"` // Resolved LPK name from ID
-	CompanyPreferences []CompanyPreferenceKey `json:"company_preferences"`
-	CompletedAt        *time.Time             `json:"completed_at,omitempty"`
+	Interests                []InterestKey          `json:"interests"`
+	LPKSelection             LPKSelection           `json:"lpk_selection"`
+	LPKName                  *string                `json:"lpk_name,omitempty"` // Resolved LPK name from ID
+	CompanyPreferences       []CompanyPreferenceKey `json:"company_preferences"`
+	WillingToInterviewOnsite *bool                  `json:"willing_to_interview_onsite,omitempty"`
+	CompletedAt              *time.Time             `json:"completed_at,omitempty"`
 }
 
 // ============================================================================

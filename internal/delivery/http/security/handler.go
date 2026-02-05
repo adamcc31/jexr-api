@@ -131,7 +131,7 @@ func (h *SecurityDashboardHandler) Login(c *gin.Context) {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -165,7 +165,7 @@ func (h *SecurityDashboardHandler) VerifyTOTP(c *gin.Context) {
 		TOTPCode string `json:"totpCode" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -255,7 +255,7 @@ func (h *SecurityDashboardHandler) SetupTOTP(c *gin.Context) {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -306,7 +306,7 @@ func (h *SecurityDashboardHandler) ConfirmTOTPSetup(c *gin.Context) {
 		TOTPCode string `json:"totpCode" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -460,7 +460,7 @@ func (h *SecurityDashboardHandler) GetTimeline(c *gin.Context) {
 func (h *SecurityDashboardHandler) RequestExport(c *gin.Context) {
 	var req domain.CreateExportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -509,7 +509,7 @@ func (h *SecurityDashboardHandler) RejectExport(c *gin.Context) {
 		Reason string `json:"reason" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Rejection reason required", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -548,7 +548,7 @@ func (h *SecurityDashboardHandler) DownloadExport(c *gin.Context) {
 func (h *SecurityDashboardHandler) ActivateBreakGlass(c *gin.Context) {
 	var req domain.BreakGlassRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -591,7 +591,7 @@ func (h *SecurityDashboardHandler) RevokeBreakGlass(c *gin.Context) {
 		Reason    string `json:"reason" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -623,7 +623,7 @@ func (h *SecurityDashboardHandler) GetIntegrityStatus(c *gin.Context) {
 func (h *SecurityDashboardHandler) VerifyIntegrity(c *gin.Context) {
 	var req domain.IntegrityVerificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request", nil)
+		response.ValidationError(c, err)
 		return
 	}
 

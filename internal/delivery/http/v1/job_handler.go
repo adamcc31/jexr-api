@@ -90,7 +90,7 @@ func (h *JobHandler) Create(c *gin.Context) {
 	// 2. Bind JSON
 	var req CreateJobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -340,7 +340,7 @@ func (h *JobHandler) Update(c *gin.Context) {
 
 	var req UpdateJobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 

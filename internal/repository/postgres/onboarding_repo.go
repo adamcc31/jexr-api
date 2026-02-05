@@ -159,19 +159,20 @@ func (r *onboardingRepo) GetOnboardingData(ctx context.Context, userID string) (
 		data.CompanyPreferences = append(data.CompanyPreferences, domain.CompanyPreferenceKey(key))
 	}
 
-	// 3. Get LPK selection and completion status
+	// 3. Get LPK selection, completion status, and interview willingness
 	var lpkID *int64
 	var lpkOtherName *string
 	var lpkNone *bool
 	var completedAt *time.Time
 	var lpkName *string
+	var willingToInterviewOnsite *bool
 
 	err = r.db.QueryRow(ctx, `
-		SELECT av.lpk_id, av.lpk_other_name, av.lpk_none, av.onboarding_completed_at, lpk.name
+		SELECT av.lpk_id, av.lpk_other_name, av.lpk_none, av.onboarding_completed_at, lpk.name, av.willing_to_interview_onsite
 		FROM account_verifications av
 		LEFT JOIN lpk_list lpk ON av.lpk_id = lpk.id
 		WHERE av.user_id = $1
-	`, userID).Scan(&lpkID, &lpkOtherName, &lpkNone, &completedAt, &lpkName)
+	`, userID).Scan(&lpkID, &lpkOtherName, &lpkNone, &completedAt, &lpkName, &willingToInterviewOnsite)
 
 	if err != nil && err != pgx.ErrNoRows {
 		return nil, fmt.Errorf("failed to get LPK selection: %w", err)
@@ -185,6 +186,7 @@ func (r *onboardingRepo) GetOnboardingData(ctx context.Context, userID string) (
 		}
 		data.LPKName = lpkName
 		data.CompletedAt = completedAt
+		data.WillingToInterviewOnsite = willingToInterviewOnsite
 	}
 
 	return data, nil
@@ -259,9 +261,13 @@ func (r *onboardingRepo) SaveOnboardingData(ctx context.Context, userID string, 
 		// Default role to 'CANDIDATE' as only candidates go through onboarding
 		// IMPORTANT: Must be uppercase to match CHECK constraint: role IN ('ADMIN', 'EMPLOYER', 'CANDIDATE')
 		_, err = tx.Exec(ctx, `
-			INSERT INTO account_verifications (user_id, role, lpk_id, lpk_other_name, lpk_none, onboarding_completed_at) 
-			VALUES ($1, 'CANDIDATE', $2, $3, $4, NOW())
-		`, userID, req.LPKSelection.LPKID, req.LPKSelection.OtherName, req.LPKSelection.None)
+			INSERT INTO account_verifications (
+				user_id, role, lpk_id, lpk_other_name, lpk_none, willing_to_interview_onsite,
+				first_name, last_name, phone, gender, birth_date, onboarding_completed_at
+			) 
+			VALUES ($1, 'CANDIDATE', $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+		`, userID, req.LPKSelection.LPKID, req.LPKSelection.OtherName, req.LPKSelection.None,
+			req.WillingToInterviewOnsite, req.FirstName, req.LastName, req.Phone, req.Gender, req.BirthDate)
 		if err != nil {
 			return fmt.Errorf("failed to create verification record: %w", err)
 		}
@@ -272,9 +278,16 @@ func (r *onboardingRepo) SaveOnboardingData(ctx context.Context, userID string, 
 			SET lpk_id = $2, 
 				lpk_other_name = $3, 
 				lpk_none = $4, 
+				willing_to_interview_onsite = $5,
+				first_name = COALESCE($6, first_name),
+				last_name = COALESCE($7, last_name),
+				phone = COALESCE($8, phone),
+				gender = COALESCE($9, gender),
+				birth_date = COALESCE($10, birth_date),
 				onboarding_completed_at = NOW()
 			WHERE user_id = $1
-		`, userID, req.LPKSelection.LPKID, req.LPKSelection.OtherName, req.LPKSelection.None)
+		`, userID, req.LPKSelection.LPKID, req.LPKSelection.OtherName, req.LPKSelection.None,
+			req.WillingToInterviewOnsite, req.FirstName, req.LastName, req.Phone, req.Gender, req.BirthDate)
 		if err != nil {
 			return fmt.Errorf("failed to update verification record: %w", err)
 		}

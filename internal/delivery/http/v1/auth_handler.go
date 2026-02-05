@@ -78,7 +78,7 @@ type RegisterRequest struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -227,7 +227,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -443,7 +443,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 
 	var req ForgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -572,7 +572,7 @@ type ResetPasswordRequest struct {
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	var req ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 

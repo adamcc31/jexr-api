@@ -105,7 +105,7 @@ func (h *OnboardingHandler) Complete(c *gin.Context) {
 
 	var req domain.OnboardingSubmitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request body: "+err.Error(), nil)
+		response.ValidationError(c, err)
 		return
 	}
 

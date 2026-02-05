@@ -74,7 +74,7 @@ func (h *VerificationHandler) UpdateProfile(c *gin.Context) {
 
 	var req UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request body", err.Error())
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -111,9 +111,8 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 
 	allowed, retryAfter, err := uploadLimiter.AllowUpload(c.Request.Context(), ip, userID)
 	if err != nil {
-		log.Printf("SECURITY: Rate limiter error: %v", err)
-		// Log security event
-		security.DefaultLogger().LogRateLimitTriggered(c.Request.Context(), ip, c.GetHeader("User-Agent"), c.GetString("request_id"), "/upload")
+		// Log system warning but DO NOT trigger security event for infrastructure failures (Fail Open)
+		log.Printf("WARNING: Rate limiter unavailable: %v", err)
 	}
 	if !allowed {
 		c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
@@ -176,34 +175,6 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 		supabaseKey = os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 		if supabaseKey == "" {
 			supabaseKey = os.Getenv("SUPABASE_KEY")
-		}
-	}
-
-	// Delete old file if old_url is provided
-	oldURL := c.Query("old_url")
-	if oldURL != "" && supabaseURL != "" && supabaseKey != "" {
-		// Extract bucket and filename from the old URL
-		// URL format: https://xxx.supabase.co/storage/v1/object/public/BUCKET/FILENAME
-		if strings.Contains(oldURL, "/storage/v1/object/public/") {
-			parts := strings.Split(oldURL, "/storage/v1/object/public/")
-			if len(parts) == 2 {
-				pathParts := strings.SplitN(parts[1], "/", 2)
-				if len(pathParts) == 2 {
-					oldBucket := pathParts[0]
-					oldFilename := pathParts[1]
-					deleteURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", supabaseURL, oldBucket, oldFilename)
-
-					deleteReq, _ := http.NewRequest("DELETE", deleteURL, nil)
-					deleteReq.Header.Set("Authorization", "Bearer "+supabaseKey)
-
-					client := &http.Client{Timeout: 10 * time.Second}
-					deleteResp, deleteErr := client.Do(deleteReq)
-					if deleteErr == nil {
-						deleteResp.Body.Close()
-						log.Printf("Deleted old file: %s", oldFilename)
-					}
-				}
-			}
 		}
 	}
 
@@ -300,6 +271,38 @@ func (h *VerificationHandler) UploadFile(c *gin.Context) {
 		log.Printf("Upload failed: status=%d, body=%s", resp.StatusCode, string(respBody))
 		response.Error(c, http.StatusInternalServerError, "Upload failed", string(respBody))
 		return
+	}
+
+	// ATOMICITY: Only delete old file AFTER new file is successfully uploaded
+	oldURL := c.Query("old_url")
+	if oldURL != "" && supabaseURL != "" && supabaseKey != "" {
+		go func(urlToDelete, sbURL, sbKey string) {
+			// Extract bucket and filename from the old URL
+			// URL format: https://xxx.supabase.co/storage/v1/object/public/BUCKET/FILENAME
+			if strings.Contains(urlToDelete, "/storage/v1/object/public/") {
+				parts := strings.Split(urlToDelete, "/storage/v1/object/public/")
+				if len(parts) == 2 {
+					pathParts := strings.SplitN(parts[1], "/", 2)
+					if len(pathParts) == 2 {
+						oldBucket := pathParts[0]
+						oldFilename := pathParts[1]
+						deleteURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", sbURL, oldBucket, oldFilename)
+
+						deleteReq, _ := http.NewRequest("DELETE", deleteURL, nil)
+						deleteReq.Header.Set("Authorization", "Bearer "+sbKey)
+
+						delClient := &http.Client{Timeout: 10 * time.Second}
+						deleteResp, deleteErr := delClient.Do(deleteReq)
+						if deleteErr == nil {
+							deleteResp.Body.Close()
+							log.Printf("Deleted old file: %s", oldFilename)
+						} else {
+							log.Printf("Failed to delete old file (cleanup): %v", deleteErr)
+						}
+					}
+				}
+			}
+		}(oldURL, supabaseURL, supabaseKey)
 	}
 
 	// Construct public URL
@@ -514,7 +517,7 @@ func (h *VerificationHandler) Verify(c *gin.Context) {
 
 	var req VerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request body", err.Error())
+		response.ValidationError(c, err)
 		return
 	}
 

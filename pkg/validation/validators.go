@@ -2,6 +2,7 @@ package validation
 
 import (
 	"regexp"
+	"time"
 	"unicode"
 
 	"github.com/go-playground/validator/v10"
@@ -9,8 +10,8 @@ import (
 
 // Regex patterns
 var (
-	// Allow letters (including unicode), spaces, apostrophes, hyphens, dots
-	nameRegex = regexp.MustCompile(`^[\p{L} .'-]+$`)
+	// Allow letters, numbers, spaces, and common professional punctuation: . ' - / & ( ) ,
+	nameRegex = regexp.MustCompile(`^[\p{L}0-9 .'/&(),-]+$`)
 
 	// E164-like phone: optional +, digits 7-15 length
 	phoneRegex = regexp.MustCompile(`^\+?[0-9]{7,15}$`)
@@ -21,6 +22,7 @@ func RegisterValidators(v *validator.Validate) {
 	_ = v.RegisterValidation("valid_name", ValidName)
 	_ = v.RegisterValidation("valid_phone", ValidPhone)
 	_ = v.RegisterValidation("no_emoji", NoEmoji)
+	_ = v.RegisterValidation("max_current_year", MaxCurrentYear)
 }
 
 // ValidName validates that a string contains only valid name characters
@@ -59,4 +61,15 @@ func NoEmoji(fl validator.FieldLevel) bool {
 		}
 	}
 	return true
+}
+
+// MaxCurrentYear validates that an integer field (year) does not exceed the current year
+// This is used for JLPT certificate issue year validation where DB cannot enforce dynamic max
+func MaxCurrentYear(fl validator.FieldLevel) bool {
+	year := fl.Field().Int()
+	if year == 0 {
+		return true // Allow zero/nil (optional field)
+	}
+	currentYear := int64(time.Now().Year())
+	return year <= currentYear
 }

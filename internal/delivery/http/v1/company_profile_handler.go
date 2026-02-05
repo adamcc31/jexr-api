@@ -119,7 +119,7 @@ func (h *CompanyProfileHandler) UpdateProfile(c *gin.Context) {
 
 	var req CompanyProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperror.BadRequest(err.Error()))
+		response.ValidationError(c, err)
 		return
 	}
 

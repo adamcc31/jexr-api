@@ -85,8 +85,33 @@ func ValidateFile(filename string, data []byte, detectedMIME string) FileValidat
 	// Layer 2: Magic byte validation (skip for text files)
 	if ext != ".txt" {
 		if !validateMagicBytes(ext, data) {
-			result.Error = "file content does not match extension (potential file spoofing detected)"
-			return result
+			// RELAXATION: If magic bytes don't match extension, check if the ACTUAL content is a known safe type.
+			// This handles cases like:
+			// 1. User uploads "image.png" but it's actually a JPEG (common on some devices/converters)
+			// 2. Browser/OS mislabeling
+
+			detectedRealType := detectRealType(data)
+			if detectedRealType != "" && allowedExtensions[detectedRealType] {
+				// Content is safe (e.g., actual JPEG), so we permit it.
+				// We update the extension in result to match reality if needed, or just pass validation.
+				// For now, we allow it.
+				result.Extension = detectedRealType
+				// We also update detectedMIME to match reality to pass Layer 3
+				if detectedRealType == ".jpg" || detectedRealType == ".jpeg" {
+					result.DetectedMIME = "image/jpeg"
+				} else if detectedRealType == ".png" {
+					result.DetectedMIME = "image/png"
+				} else if detectedRealType == ".gif" {
+					result.DetectedMIME = "image/gif"
+				} else if detectedRealType == ".webp" {
+					result.DetectedMIME = "image/webp"
+				} else if detectedRealType == ".pdf" {
+					result.DetectedMIME = "application/pdf"
+				}
+			} else {
+				result.Error = "file content does not match extension (potential file spoofing detected)"
+				return result
+			}
 		}
 	}
 
@@ -160,4 +185,18 @@ func GetAllowedExtensions() []string {
 func IsImageExtension(ext string) bool {
 	ext = strings.ToLower(ext)
 	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp"
+}
+
+// detectRealType attempts to identify the extension based on magic bytes
+func detectRealType(data []byte) string {
+	for ext, signatures := range magicBytes {
+		// specific check order? Map iteration is random, but unique magic bytes usually fine.
+		// We might want to prioritize specific types if there's overlap, but for images/docs it is rare.
+		for _, sig := range signatures {
+			if len(data) >= len(sig) && bytes.HasPrefix(data, sig) {
+				return ext
+			}
+		}
+	}
+	return ""
 }

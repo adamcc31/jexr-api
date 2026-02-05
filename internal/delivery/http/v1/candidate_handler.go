@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 type CandidateHandler struct {
@@ -82,7 +83,7 @@ func (h *CandidateHandler) UpdateFullProfile(c *gin.Context) {
 
 	var req domain.CandidateWithFullDetails
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "Invalid request payload", err)
+		response.ValidationError(c, err)
 		return
 	}
 
@@ -94,6 +95,11 @@ func (h *CandidateHandler) UpdateFullProfile(c *gin.Context) {
 
 	err := h.candidateUC.UpdateFullProfile(c.Request.Context(), userID, &req)
 	if err != nil {
+		// Check if it's a validation error (now returned raw from usecase)
+		if _, ok := err.(validator.ValidationErrors); ok {
+			response.ValidationError(c, err)
+			return
+		}
 		c.Error(err)
 		return
 	}

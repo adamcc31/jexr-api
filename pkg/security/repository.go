@@ -52,7 +52,7 @@ func (r *SecurityEventRepository) PersistEvent(ctx context.Context, event Securi
 		ipAddr,
 		event.UserAgent,
 		event.RequestID,
-		detailsJSON,
+		string(detailsJSON),
 		event.Timestamp,
 	)
 

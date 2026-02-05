@@ -29,7 +29,8 @@ func (r *verificationRepo) GetByUserID(ctx context.Context, userID string) (*dom
 			birth_date, domicile_city, marital_status, children_count,
 			main_job_fields, golden_skill, japanese_speaking_level,
 			expected_salary, japan_return_date, available_start_date, preferred_locations, preferred_industries,
-			supporting_certificates_url
+			supporting_certificates_url, gender,
+			height_cm, weight_kg, religion, jlpt_certificate_issue_year, willing_to_interview_onsite
 		FROM account_verifications
 		WHERE user_id = $1
 	`
@@ -40,7 +41,8 @@ func (r *verificationRepo) GetByUserID(ctx context.Context, userID string) (*dom
 		&v.BirthDate, &v.DomicileCity, &v.MaritalStatus, &v.ChildrenCount,
 		&v.MainJobFields, &v.GoldenSkill, &v.JapaneseSpeakingLevel,
 		&v.ExpectedSalary, &v.JapanReturnDate, &v.AvailableStartDate, &v.PreferredLocations, &v.PreferredIndustries,
-		&v.SupportingCertificatesURL,
+		&v.SupportingCertificatesURL, &v.Gender,
+		&v.HeightCm, &v.WeightKg, &v.Religion, &v.JLPTCertificateIssueYear, &v.WillingToInterviewOnsite,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -54,14 +56,17 @@ func (r *verificationRepo) GetByUserID(ctx context.Context, userID string) (*dom
 func (r *verificationRepo) GetByID(ctx context.Context, id int64) (*domain.AccountVerification, error) {
 	query := `
 		SELECT 
-			id, user_id, role, status, submitted_at, verified_at, verified_by, notes, created_at, updated_at,
-			first_name, last_name, profile_picture_url, occupation, phone, website_url, intro, japan_experience_duration, japanese_certificate_url, cv_url, portfolio_url, japanese_level,
-			birth_date, domicile_city, marital_status, children_count,
-			main_job_fields, golden_skill, japanese_speaking_level,
-			expected_salary, japan_return_date, available_start_date, preferred_locations, preferred_industries,
-			supporting_certificates_url
-		FROM account_verifications
-		WHERE id = $1
+			av.id, av.user_id, av.role, av.status, av.submitted_at, av.verified_at, av.verified_by, av.notes, av.created_at, av.updated_at,
+			av.first_name, av.last_name, av.profile_picture_url, av.occupation, av.phone, av.website_url, av.intro, av.japan_experience_duration, av.japanese_certificate_url, av.cv_url, av.portfolio_url, av.japanese_level,
+			av.birth_date, av.domicile_city, av.marital_status, av.children_count,
+			av.main_job_fields, av.golden_skill, av.japanese_speaking_level,
+			av.expected_salary, av.japan_return_date, av.available_start_date, av.preferred_locations, av.preferred_industries,
+			av.supporting_certificates_url, av.gender,
+			av.height_cm, av.weight_kg, av.religion, av.jlpt_certificate_issue_year, av.willing_to_interview_onsite,
+			u.email
+		FROM account_verifications av
+		JOIN users u ON av.user_id = u.id
+		WHERE av.id = $1
 	`
 	var v domain.AccountVerification
 	err := r.db.QueryRow(ctx, query, id).Scan(
@@ -70,7 +75,9 @@ func (r *verificationRepo) GetByID(ctx context.Context, id int64) (*domain.Accou
 		&v.BirthDate, &v.DomicileCity, &v.MaritalStatus, &v.ChildrenCount,
 		&v.MainJobFields, &v.GoldenSkill, &v.JapaneseSpeakingLevel,
 		&v.ExpectedSalary, &v.JapanReturnDate, &v.AvailableStartDate, &v.PreferredLocations, &v.PreferredIndustries,
-		&v.SupportingCertificatesURL,
+		&v.SupportingCertificatesURL, &v.Gender,
+		&v.HeightCm, &v.WeightKg, &v.Religion, &v.JLPTCertificateIssueYear, &v.WillingToInterviewOnsite,
+		&v.UserEmail,
 	)
 	if err != nil {
 		return nil, err
@@ -87,7 +94,8 @@ func (r *verificationRepo) List(ctx context.Context, filter domain.VerificationF
 			av.birth_date, av.domicile_city, av.marital_status, av.children_count,
 			av.main_job_fields, av.golden_skill, av.japanese_speaking_level,
 			av.expected_salary, av.japan_return_date, av.available_start_date, av.preferred_locations, av.preferred_industries,
-			av.supporting_certificates_url,
+			av.supporting_certificates_url, av.gender,
+			av.height_cm, av.weight_kg, av.religion, av.jlpt_certificate_issue_year, av.willing_to_interview_onsite,
 			u.email,
 			COALESCE(
 				CASE 
@@ -150,7 +158,8 @@ func (r *verificationRepo) List(ctx context.Context, filter domain.VerificationF
 			&v.BirthDate, &v.DomicileCity, &v.MaritalStatus, &v.ChildrenCount,
 			&v.MainJobFields, &v.GoldenSkill, &v.JapaneseSpeakingLevel,
 			&v.ExpectedSalary, &v.JapanReturnDate, &v.AvailableStartDate, &v.PreferredLocations, &v.PreferredIndustries,
-			&v.SupportingCertificatesURL,
+			&v.SupportingCertificatesURL, &v.Gender,
+			&v.HeightCm, &v.WeightKg, &v.Religion, &v.JLPTCertificateIssueYear, &v.WillingToInterviewOnsite,
 			&v.UserEmail, &profileName,
 		)
 		if err != nil {
@@ -193,8 +202,9 @@ func (r *verificationRepo) Create(ctx context.Context, v *domain.AccountVerifica
 			birth_date, domicile_city, marital_status, children_count,
 			main_job_fields, golden_skill, japanese_speaking_level,
 			expected_salary, japan_return_date, available_start_date, preferred_locations, preferred_industries,
-			supporting_certificates_url
-		) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+			supporting_certificates_url, gender,
+			height_cm, weight_kg, religion, jlpt_certificate_issue_year, willing_to_interview_onsite
+		) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
 		RETURNING id
 	`
 	var id int64
@@ -204,7 +214,8 @@ func (r *verificationRepo) Create(ctx context.Context, v *domain.AccountVerifica
 		v.BirthDate, v.DomicileCity, v.MaritalStatus, v.ChildrenCount,
 		v.MainJobFields, v.GoldenSkill, v.JapaneseSpeakingLevel,
 		v.ExpectedSalary, v.JapanReturnDate, v.AvailableStartDate, v.PreferredLocations, v.PreferredIndustries,
-		v.SupportingCertificatesURL,
+		v.SupportingCertificatesURL, v.Gender,
+		v.HeightCm, v.WeightKg, v.Religion, v.JLPTCertificateIssueYear, v.WillingToInterviewOnsite,
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create verification: %w", err)
@@ -250,7 +261,13 @@ func (r *verificationRepo) UpdateProfile(ctx context.Context, v *domain.AccountV
 			preferred_locations = $26,
 			preferred_industries = $27,
 			supporting_certificates_url = $28,
-			updated_at = $29
+			updated_at = $29,
+			gender = $30,
+			height_cm = $31,
+			weight_kg = $32,
+			religion = $33,
+			jlpt_certificate_issue_year = $34,
+			willing_to_interview_onsite = $35
 		WHERE id = $1
 	`
 	_, err = tx.Exec(ctx, updateQuery,
@@ -283,6 +300,12 @@ func (r *verificationRepo) UpdateProfile(ctx context.Context, v *domain.AccountV
 		v.PreferredIndustries,
 		v.SupportingCertificatesURL,
 		time.Now(),
+		v.Gender,
+		v.HeightCm,
+		v.WeightKg,
+		v.Religion,
+		v.JLPTCertificateIssueYear,
+		v.WillingToInterviewOnsite,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update profile: %w", err)
